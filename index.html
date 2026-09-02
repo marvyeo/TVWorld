@@ -354,6 +354,7 @@
               <option value="Dropped">Dropped</option>
             </select>
             <button class="btn btn-secondary btn-sm" onclick="openEditModal()">Edit</button>
+            <button class="btn btn-secondary btn-sm" onclick="refreshFromTMDB()" id="refresh-tmdb-btn">↻ Refresh TMDB</button>
             <button class="recap-btn">✨ Recap <span class="recap-label">Coming Soon</span></button>
             <button class="btn btn-danger btn-sm" onclick="deleteSeries()">Delete</button>
           </div>
@@ -536,21 +537,10 @@ let data = {
 };
 
 // ─── Auth ──────────────────────────────────────────────────────────────────
-window.onload = () => {
-  google.accounts.id.initialize({
-    client_id: CLIENT_ID,
-    callback: handleCredential,
-    auto_select: true
-  });
-  google.accounts.id.renderButton(document.getElementById('gsi-button'), {
-    theme: 'filled_black', size: 'large', text: 'continue_with', shape: 'pill'
-  });
-  google.accounts.id.prompt();
-};
+let tokenClient;
 
-async function handleCredential(response) {
-  // Exchange for OAuth access token via token client
-  const tokenClient = google.accounts.oauth2.initTokenClient({
+window.onload = () => {
+  tokenClient = google.accounts.oauth2.initTokenClient({
     client_id: CLIENT_ID,
     scope: 'https://www.googleapis.com/auth/drive.file',
     callback: async (tokenResponse) => {
@@ -561,8 +551,14 @@ async function handleCredential(response) {
       await loadFromDrive();
     }
   });
-  tokenClient.requestAccessToken({ prompt: '' });
-}
+
+  // Try silent token first (returns immediately if session exists)
+  tokenClient.requestAccessToken({ prompt: 'none' });
+
+  // Render manual sign-in button as fallback
+  document.getElementById('gsi-button').innerHTML =
+    '<button class="btn btn-primary" style="padding:12px 28px;font-size:15px;" onclick="tokenClient.requestAccessToken({prompt:\'select_account\'})">Sign in with Google</button>';
+};
 
 // ─── Drive ─────────────────────────────────────────────────────────────────
 function setSyncStatus(state) {
@@ -1214,17 +1210,103 @@ async function selectTMDB(tmdbId) {
   }
 }
 
-async function fetchProviders(seriesId, tmdbId) {
+async function refreshFromTMDB() {
+  const s = data.series.find(x => x.id === currentSeriesId);
+  if (!s || !s.tmdb_id) { showToast('No TMDB ID — use Edit to add one', 'error'); return; }
+  const key = data.settings.tmdb_api_key;
+  if (!key) { showToast('Add your TMDB API key in Settings', 'error'); return; }
+
+  const btn = document.getElementById('refresh-tmdb-btn');
+  if (btn) { btn.textContent = '↻ Refreshing…'; btn.disabled = true; }
+  showToast('Refreshing from TMDB…');
+
+  try {
+    const seriesRes = await fetch(`https://api.themoviedb.org/3/tv/${s.tmdb_id}?api_key=${key}`);
+    const meta = await seriesRes.json();
+    const totalSeasons = meta.number_of_seasons || s.total_seasons || 1;
+
+    const seasonFetches = [];
+    for (let i = 1; i <= Math.min(totalSeasons, 50); i++) {
+      seasonFetches.push(fetch(`https://api.themoviedb.org/3/tv/${s.tmdb_id}/season/${i}?api_key=${key}`).then(r => r.json()));
+    }
+    const seasonData = await Promise.all(seasonFetches);
+
+    // Merge: update metadata + episode titles/synopsis/airdates, preserve watched state
+    s.title = meta.name || s.title;
+    s.synopsis = meta.overview || s.synopsis;
+    s.total_seasons = meta.number_of_seasons || s.total_seasons;
+    s.genres = (meta.genres||[]).map(g => g.name).length ? (meta.genres||[]).map(g => g.name) : s.genres;
+    s.poster_url = meta.poster_path ? `https://image.tmdb.org/t/p/w500${meta.poster_path}` : s.poster_url;
+
+    seasonData.forEach(sea => {
+      if (!sea.season_number) return;
+      let exSea = (s.seasons||[]).find(x => x.season_number === sea.season_number);
+      if (!exSea) {
+        s.seasons = s.seasons || [];
+        s.seasons.push({
+          season_number: sea.season_number,
+          episodes: (sea.episodes||[]).map(ep => ({
+            episode_number: ep.episode_number,
+            title: ep.name || `Episode ${ep.episode_number}`,
+            synopsis: ep.overview || null,
+            air_date: ep.air_date || null,
+            watched: false
+          }))
+        });
+      } else {
+        (sea.episodes||[]).forEach(ep => {
+          const exEp = exSea.episodes.find(e => e.episode_number === ep.episode_number);
+          if (!exEp) {
+            exSea.episodes.push({
+              episode_number: ep.episode_number,
+              title: ep.name || `Episode ${ep.episode_number}`,
+              synopsis: ep.overview || null,
+              air_date: ep.air_date || null,
+              watched: false
+            });
+          } else {
+            exEp.title = ep.name || exEp.title;
+            exEp.synopsis = ep.overview || exEp.synopsis;
+            exEp.air_date = ep.air_date || exEp.air_date;
+            // preserve exEp.watched
+          }
+        });
+        exSea.episodes.sort((a,b) => a.episode_number - b.episode_number);
+      }
+    });
+    s.seasons.sort((a,b) => a.season_number - b.season_number);
+
+    // Refresh providers too
+    await fetchProviders(s.id, s.tmdb_id);
+
+    saveToDrive();
+    openDetail(s.id); // re-render detail view
+    showToast('Refreshed from TMDB', 'success');
+  } catch(e) {
+    showToast('Refresh failed', 'error');
+    console.error(e);
+  } finally {
+    const btn = document.getElementById('refresh-tmdb-btn');
+    if (btn) { btn.textContent = '↻ Refresh TMDB'; btn.disabled = false; }
+  }
+}
+
+
   const key = data.settings.tmdb_api_key;
   if (!key) return;
   try {
     const res = await fetch(`https://api.themoviedb.org/3/tv/${tmdbId}/watch/providers?api_key=${key}`);
     const json = await res.json();
     const sg = json.results?.SG;
-    const all = [...(sg?.flatrate||[]), ...(sg?.free||[])].map(p => p.provider_name);
+    const all = [...(sg?.flatrate||[]), ...(sg?.ads||[]), ...(sg?.free||[])].map(p => p.provider_name);
     const s = data.series.find(x => x.id === seriesId);
-    if (s) { s.streaming_platforms = [...new Set(all)]; saveToDrive(); }
-  } catch(e) {}
+    if (s) {
+      s.streaming_platforms = [...new Set(all)];
+      // Re-render the platform flag if this series is currently open
+      if (currentSeriesId === seriesId) renderPlatformFlag(s);
+      saveToDrive();
+    }
+  } catch(e) { console.error('Provider fetch failed:', e); }
 }
 
 // ─── JSON Ingest ──────────────────────────────────────────────────────────
