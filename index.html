@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TV World</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://accounts.google.com/gsi/client" onload="onGoogleLibraryLoad()"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Syne:wght@700;800&display=swap');
 
@@ -240,7 +240,7 @@
 <div id="auth-screen">
   <div class="auth-logo">TV <span>World</span></div>
   <div class="auth-subtitle">Your personal TV series tracker, connected to Google Drive</div>
-  <div id="gsi-button"></div>
+  <button id="signin-btn" class="btn btn-primary" style="padding:12px 28px;font-size:15px;" onclick="startSignIn()">Sign in with Google</button>
   <p style="color:var(--muted);font-size:12px;margin-top:8px;">Sign in to load your watchlist</p>
 </div>
 
@@ -539,33 +539,40 @@ let data = {
 // ─── Auth ──────────────────────────────────────────────────────────────────
 let tokenClient;
 
-window.onload = () => {
+function startSignIn() {
+  if (!tokenClient) {
+    tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: CLIENT_ID,
+      scope: 'https://www.googleapis.com/auth/drive.file',
+      callback: async (tokenResponse) => {
+        if (tokenResponse.error) {
+          showToast('Sign in failed — please try again', 'error');
+          return;
+        }
+        accessToken = tokenResponse.access_token;
+        document.getElementById('auth-screen').classList.add('hidden');
+        document.getElementById('app').classList.remove('hidden');
+        await loadFromDrive();
+      }
+    });
+  }
+  tokenClient.requestAccessToken({ prompt: 'select_account' });
+}
+
+// Auto sign-in on return visits once GSI library is ready
+function onGoogleLibraryLoad() {
   tokenClient = google.accounts.oauth2.initTokenClient({
     client_id: CLIENT_ID,
     scope: 'https://www.googleapis.com/auth/drive.file',
     callback: async (tokenResponse) => {
-      if (tokenResponse.error) {
-        // Silent attempt failed — show the sign-in button
-        showSignInButton();
-        return;
-      }
+      if (tokenResponse.error) return; // silent fail — button is already visible
       accessToken = tokenResponse.access_token;
       document.getElementById('auth-screen').classList.add('hidden');
       document.getElementById('app').classList.remove('hidden');
       await loadFromDrive();
     }
   });
-
-  // Always show the button immediately
-  showSignInButton();
-
-  // Also attempt silent sign-in — if it succeeds, the callback above will hide the auth screen
   tokenClient.requestAccessToken({ prompt: 'none' });
-};
-
-function showSignInButton() {
-  document.getElementById('gsi-button').innerHTML =
-    '<button class="btn btn-primary" style="padding:12px 28px;font-size:15px;" onclick="tokenClient.requestAccessToken({prompt:\'select_account\'})">Sign in with Google</button>';
 }
 
 // ─── Drive ─────────────────────────────────────────────────────────────────
