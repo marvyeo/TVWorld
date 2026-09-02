@@ -154,6 +154,8 @@
   .film-title { font-size: 10px; font-weight: 600; line-height: 1.3; }
   .film-year { font-size: 9px; color: var(--muted); margin-top: 2px; }
   .in-library-badge { position: absolute; top: 4px; right: 4px; background: var(--watching); border-radius: 20px; font-size: 8px; font-weight: 700; padding: 1px 5px; color: #0e0f13; }
+  .add-film-badge { position: absolute; top: 4px; right: 4px; background: rgba(124,106,245,0.85); border-radius: 20px; font-size: 8px; font-weight: 700; padding: 1px 5px; color: #fff; opacity: 0; transition: opacity 0.15s; }
+  .film-card:hover .add-film-badge { opacity: 1; }
   .film-tabs { display: flex; gap: 0; margin-bottom: 14px; border-bottom: 1px solid var(--border); }
   .film-tab { padding: 8px 14px; font-size: 12px; font-weight: 500; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.15s; }
   .film-tab.active { color: var(--accent2); border-bottom-color: var(--accent); }
@@ -943,13 +945,20 @@ async function openPersonModal(personId) {
       ? `<img class="person-photo" src="https://image.tmdb.org/t/p/w185${person.profile_path}">`
       : `<div class="person-photo-ph">👤</div>`;
 
-    // Sort and dedupe by popularity
-    const movies = (credits.cast||[]).filter(c => c.media_type === 'movie')
-      .sort((a,b) => (b.popularity||0) - (a.popularity||0))
-      .filter((c,i,arr) => arr.findIndex(x=>x.id===c.id)===i);
-    const tv = (credits.cast||[]).filter(c => c.media_type === 'tv')
-      .sort((a,b) => (b.popularity||0) - (a.popularity||0))
-      .filter((c,i,arr) => arr.findIndex(x=>x.id===c.id)===i);
+    // Dedupe by id, sort latest to earliest by release/air date
+    const byDate = (a, b) => {
+      const da = a.release_date || a.first_air_date || '';
+      const db = b.release_date || b.first_air_date || '';
+      return db.localeCompare(da);
+    };
+    const movies = (credits.cast||[])
+      .filter(c => c.media_type === 'movie')
+      .filter((c,i,arr) => arr.findIndex(x => x.id === c.id) === i)
+      .sort(byDate);
+    const tv = (credits.cast||[])
+      .filter(c => c.media_type === 'tv')
+      .filter((c,i,arr) => arr.findIndex(x => x.id === c.id) === i)
+      .sort(byDate);
 
     personFilmData = { movies, tv };
     currentFilmTab = 'movies';
@@ -970,45 +979,65 @@ function switchFilmTab(tab) {
 function renderFilmTab() {
   const items = currentFilmTab === 'movies' ? personFilmData.movies : personFilmData.tv;
   const grid = document.getElementById('filmography-grid');
-  if (items.length === 0) { grid.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:20px 0;">Nothing found.</div>'; return; }
+  if (items.length === 0) {
+    grid.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:20px 0;">Nothing found.</div>';
+    return;
+  }
 
-  grid.innerHTML = items.slice(0, 40).map(item => {
+  grid.innerHTML = '';
+  items.slice(0, 60).forEach(item => {
     const title = item.title || item.name || 'Untitled';
     const year = (item.release_date || item.first_air_date || '').split('-')[0];
-    const inLib = data.series.some(s => s.tmdb_id == item.id);
-    return `<div class="film-card ${inLib?'in-library':''}" onclick="closeModal('person-modal');openDetail(getTmdbLibraryId(${item.id})||'');" ${!inLib ? `onclick="void(0)"` : ''}>
-      ${inLib ? '<div class="in-library-badge">✓ In Library</div>' : ''}
+    const libEntry = data.series.find(s => String(s.tmdb_id) === String(item.id));
+    const inLib = !!libEntry;
+    const mediaType = currentFilmTab === 'movies' ? 'movie' : 'tv';
+
+    const card = document.createElement('div');
+    card.className = 'film-card' + (inLib ? ' in-library' : '');
+    card.title = inLib ? 'Open in library' : 'Add to library';
+    card.innerHTML = `
+      ${inLib ? '<div class="in-library-badge">✓ In Library</div>' : '<div class="add-film-badge">+ Add</div>'}
       ${item.poster_path
-        ? `<img class="film-poster" src="https://image.tmdb.org/t/p/w154${item.poster_path}" loading="lazy" onerror="this.outerHTML='<div class=\\'film-poster-ph\\'>🎬</div>'">`
-        : `<div class="film-poster-ph">🎬</div>`}
+        ? `<img class="film-poster" src="https://image.tmdb.org/t/p/w154${item.poster_path}" loading="lazy" onerror="this.outerHTML='<div class=\\'film-poster-ph\\'>${mediaType==='movie'?'🎬':'📺'}</div>'">`
+        : `<div class="film-poster-ph">${mediaType === 'movie' ? '🎬' : '📺'}</div>`}
       <div class="film-body">
         <div class="film-title">${title}</div>
         ${year ? `<div class="film-year">${year}</div>` : ''}
-      </div>
-    </div>`;
-  }).join('');
+      </div>`;
 
-  // Fix onclick for non-library items to do nothing
-  grid.querySelectorAll('.film-card:not(.in-library)').forEach(el => {
-    el.onclick = null;
-  });
-  grid.querySelectorAll('.film-card.in-library').forEach(el => {
-    const tmdbId = parseInt(el.querySelector('.in-library-badge') ? el.getAttribute('data-tmdbid') : 0);
-  });
-  // Re-wire in-library cards properly
-  items.slice(0, 40).forEach((item, i) => {
-    const cards = grid.querySelectorAll('.film-card.in-library');
-    const libId = getTmdbLibraryId(item.id);
-    if (libId) {
-      const matchCard = [...grid.querySelectorAll('.film-card')][i];
-      if (matchCard) matchCard.onclick = () => { closeModal('person-modal'); openDetail(libId); };
-    }
+    card.onclick = () => {
+      if (inLib) {
+        closeModal('person-modal');
+        openDetail(libEntry.id);
+      } else {
+        addFromFilmography(item.id, mediaType, title);
+      }
+    };
+
+    grid.appendChild(card);
   });
 }
 
 function getTmdbLibraryId(tmdbId) {
-  const s = data.series.find(s => s.tmdb_id == tmdbId);
+  const s = data.series.find(s => String(s.tmdb_id) === String(tmdbId));
   return s ? s.id : null;
+}
+
+async function addFromFilmography(tmdbId, mediaType, title) {
+  const key = data.settings.tmdb_api_key;
+  closeModal('person-modal');
+  openAddModal('tmdb');
+
+  // Pre-select the right type toggle
+  setTmdbSearchType(mediaType === 'movie' ? 'movie' : 'tv');
+
+  showToast(`Fetching ${title}…`);
+
+  try {
+    await selectTMDB(tmdbId, mediaType);
+  } catch(e) {
+    // selectTMDB shows its own error toast
+  }
 }
 
 // ─── Seasons ────────────────────────────────────────────────────────────────
