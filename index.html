@@ -1,0 +1,1396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TV World</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Syne:wght@700;800&display=swap');
+
+  :root {
+    --bg:       #0e0f13;
+    --surface:  #16181f;
+    --card:     #1c1f2a;
+    --border:   #2a2d3a;
+    --muted:    #6b7280;
+    --text:     #e8eaf0;
+    --accent:   #7c6af5;
+    --accent2:  #b08cf8;
+    --watching: #22d3a5;
+    --plan:     #60a5fa;
+    --paused:   #f59e0b;
+    --dropped:  #f87171;
+    --complete: #a3e635;
+  }
+
+  * { box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; font-size: 14px; margin: 0; min-height: 100vh; }
+  h1, h2, h3, .syne { font-family: 'Syne', sans-serif; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* Layout */
+  #app { display: flex; height: 100vh; overflow: hidden; }
+  #sidebar { width: 220px; flex-shrink: 0; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 0; overflow: hidden; }
+  #main { flex: 1; overflow-y: auto; padding: 28px 32px; }
+
+  /* Sidebar */
+  .sidebar-logo { padding: 24px 20px 16px; border-bottom: 1px solid var(--border); }
+  .sidebar-logo .wordmark { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 800; letter-spacing: -0.5px; }
+  .wordmark span { color: var(--accent2); }
+  .sidebar-nav { flex: 1; padding: 12px 10px; overflow-y: auto; }
+  .nav-section { font-size: 10px; font-weight: 600; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; padding: 12px 10px 6px; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; cursor: pointer; color: var(--muted); transition: all 0.15s; font-size: 13px; font-weight: 500; user-select: none; }
+  .nav-item:hover { background: var(--card); color: var(--text); }
+  .nav-item.active { background: rgba(124,106,245,0.15); color: var(--accent2); }
+  .nav-item .count { margin-left: auto; background: var(--border); border-radius: 20px; padding: 1px 7px; font-size: 11px; color: var(--muted); }
+  .sidebar-bottom { padding: 12px 10px 16px; border-top: 1px solid var(--border); }
+
+  /* Status dot */
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .dot-watching { background: var(--watching); }
+  .dot-plan { background: var(--plan); }
+  .dot-paused { background: var(--paused); }
+  .dot-dropped { background: var(--dropped); }
+  .dot-complete { background: var(--complete); }
+
+  /* Page header */
+  .page-header { margin-bottom: 24px; }
+  .page-title { font-family: 'Syne', sans-serif; font-size: 26px; font-weight: 800; letter-spacing: -0.5px; }
+  .page-sub { color: var(--muted); margin-top: 3px; font-size: 13px; }
+
+  /* Search + actions bar */
+  .toolbar { display: flex; gap: 10px; align-items: center; margin-bottom: 24px; flex-wrap: wrap; }
+  .search-box { flex: 1; min-width: 200px; display: flex; align-items: center; gap: 8px; background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px; }
+  .search-box input { background: none; border: none; outline: none; color: var(--text); font-size: 13px; flex: 1; font-family: 'Inter', sans-serif; }
+  .search-box input::placeholder { color: var(--muted); }
+
+  /* Buttons */
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 9px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; transition: all 0.15s; font-family: 'Inter', sans-serif; white-space: nowrap; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: var(--accent2); }
+  .btn-secondary { background: var(--card); color: var(--text); border: 1px solid var(--border); }
+  .btn-secondary:hover { background: var(--border); }
+  .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+  .btn-ghost:hover { color: var(--text); background: var(--card); }
+  .btn-danger { background: rgba(248,113,113,0.15); color: var(--dropped); border: 1px solid rgba(248,113,113,0.2); }
+  .btn-danger:hover { background: rgba(248,113,113,0.25); }
+  .btn-sm { padding: 5px 10px; font-size: 12px; border-radius: 7px; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* Series grid */
+  .series-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(185px, 1fr)); gap: 16px; }
+  .series-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; cursor: pointer; transition: all 0.18s; position: relative; }
+  .series-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 8px 30px rgba(124,106,245,0.12); }
+  .series-poster { width: 100%; aspect-ratio: 2/3; object-fit: cover; background: var(--border); display: block; }
+  .series-poster-placeholder { width: 100%; aspect-ratio: 2/3; background: linear-gradient(135deg, var(--surface) 0%, var(--border) 100%); display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 32px; }
+  .series-card-body { padding: 12px; }
+  .series-card-title { font-weight: 600; font-size: 13px; line-height: 1.3; margin-bottom: 6px; }
+  .series-card-meta { color: var(--muted); font-size: 11px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .status-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 20px; }
+  .badge-watching { background: rgba(34,211,165,0.12); color: var(--watching); }
+  .badge-plan { background: rgba(96,165,250,0.12); color: var(--plan); }
+  .badge-paused { background: rgba(245,158,11,0.12); color: var(--paused); }
+  .badge-dropped { background: rgba(248,113,113,0.12); color: var(--dropped); }
+  .badge-complete { background: rgba(163,230,53,0.12); color: var(--complete); }
+
+  /* Progress bar */
+  .progress-bar { height: 3px; background: var(--border); border-radius: 2px; margin-top: 8px; }
+  .progress-fill { height: 100%; border-radius: 2px; background: var(--accent); transition: width 0.3s; }
+  .progress-fill.watching { background: var(--watching); }
+  .progress-fill.complete { background: var(--complete); }
+
+  /* Continue watching strip */
+  .continue-strip { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 28px; }
+  .continue-strip::-webkit-scrollbar { height: 4px; }
+  .continue-card { flex-shrink: 0; width: 260px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; display: flex; gap: 12px; align-items: center; padding: 12px; cursor: pointer; transition: all 0.15s; }
+  .continue-card:hover { border-color: var(--watching); }
+  .continue-thumb { width: 48px; height: 68px; object-fit: cover; border-radius: 8px; background: var(--border); flex-shrink: 0; }
+  .continue-thumb-ph { width: 48px; height: 68px; border-radius: 8px; background: var(--border); flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 18px; }
+  .continue-info { flex: 1; min-width: 0; }
+  .continue-title { font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .continue-ep { color: var(--muted); font-size: 11px; margin-top: 3px; }
+  .continue-play { width: 30px; height: 30px; border-radius: 50%; background: var(--watching); display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #0e0f13; font-size: 12px; }
+
+  /* Detail view */
+  #detail-view { display: none; }
+  .detail-hero { display: flex; gap: 28px; margin-bottom: 28px; align-items: flex-start; }
+  .detail-poster { width: 160px; flex-shrink: 0; border-radius: 14px; overflow: hidden; }
+  .detail-poster img { width: 100%; display: block; }
+  .detail-poster-ph { width: 160px; height: 240px; border-radius: 14px; background: linear-gradient(135deg, var(--surface) 0%, var(--border) 100%); display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 48px; flex-shrink: 0; }
+  .detail-meta { flex: 1; }
+  .detail-title { font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 800; letter-spacing: -0.5px; line-height: 1.1; margin-bottom: 10px; }
+  .detail-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+  .tag { background: var(--border); color: var(--muted); font-size: 11px; padding: 3px 9px; border-radius: 20px; }
+  .detail-synopsis { color: #9ca3af; font-size: 13px; line-height: 1.6; margin-bottom: 16px; max-width: 560px; }
+  .detail-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .platform-flag { display: inline-flex; align-items: center; gap: 5px; background: rgba(124,106,245,0.1); border: 1px solid rgba(124,106,245,0.2); color: var(--accent2); font-size: 12px; padding: 4px 10px; border-radius: 20px; }
+
+  /* Season accordion */
+  .season-block { margin-bottom: 12px; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .season-header { display: flex; align-items: center; gap: 12px; padding: 12px 16px; cursor: pointer; background: var(--card); transition: background 0.15s; user-select: none; }
+  .season-header:hover { background: var(--border); }
+  .season-title { font-weight: 600; font-size: 14px; flex: 1; }
+  .season-progress { font-size: 12px; color: var(--muted); }
+  .season-chevron { color: var(--muted); transition: transform 0.2s; font-size: 12px; }
+  .season-chevron.open { transform: rotate(180deg); }
+  .season-episodes { background: var(--surface); }
+  .episode-row { display: flex; align-items: center; gap: 12px; padding: 9px 16px; border-top: 1px solid var(--border); transition: background 0.1s; }
+  .episode-row:hover { background: var(--card); }
+  .ep-check { width: 18px; height: 18px; border-radius: 5px; border: 2px solid var(--border); flex-shrink: 0; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+  .ep-check.watched { background: var(--watching); border-color: var(--watching); }
+  .ep-num { color: var(--muted); font-size: 12px; width: 28px; flex-shrink: 0; }
+  .ep-title { flex: 1; font-size: 13px; }
+  .ep-airdate { color: var(--muted); font-size: 11px; }
+  .ep-future { color: var(--paused); font-size: 11px; }
+
+  /* Modal overlay */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(10,10,15,0.75); backdrop-filter: blur(4px); z-index: 100; display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .modal { background: var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 28px; width: 100%; max-width: 520px; max-height: 80vh; overflow-y: auto; position: relative; }
+  .modal-title { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 800; margin-bottom: 20px; }
+  .modal-close { position: absolute; top: 16px; right: 16px; background: none; border: none; color: var(--muted); cursor: pointer; font-size: 20px; padding: 4px; line-height: 1; }
+  .modal-close:hover { color: var(--text); }
+
+  /* Form elements */
+  .form-group { margin-bottom: 16px; }
+  .form-label { display: block; font-size: 12px; font-weight: 500; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .form-input { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 9px; padding: 9px 12px; color: var(--text); font-size: 13px; font-family: 'Inter', sans-serif; outline: none; transition: border-color 0.15s; }
+  .form-input:focus { border-color: var(--accent); }
+  .form-input::placeholder { color: var(--muted); }
+  .form-select { appearance: none; cursor: pointer; }
+  .form-row { display: flex; gap: 12px; }
+  .form-row .form-group { flex: 1; }
+
+  /* Rating stars */
+  .rating-stars { display: flex; gap: 4px; }
+  .star { cursor: pointer; font-size: 20px; color: var(--border); transition: color 0.1s; }
+  .star.filled { color: #f59e0b; }
+  .star:hover { color: #f59e0b; }
+
+  /* TMDB search results */
+  .tmdb-results { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-top: 10px; max-height: 300px; overflow-y: auto; }
+  .tmdb-result-item { display: flex; gap: 12px; align-items: center; padding: 10px 14px; cursor: pointer; border-bottom: 1px solid var(--border); transition: background 0.1s; }
+  .tmdb-result-item:last-child { border-bottom: none; }
+  .tmdb-result-item:hover { background: var(--surface); }
+  .tmdb-result-thumb { width: 36px; height: 50px; object-fit: cover; border-radius: 6px; background: var(--border); flex-shrink: 0; }
+  .tmdb-result-title { font-weight: 600; font-size: 13px; }
+  .tmdb-result-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  /* Upload zone */
+  .upload-zone { border: 2px dashed var(--border); border-radius: 12px; padding: 32px; text-align: center; cursor: pointer; transition: all 0.2s; }
+  .upload-zone:hover, .upload-zone.drag-over { border-color: var(--accent); background: rgba(124,106,245,0.05); }
+  .upload-zone-icon { font-size: 36px; margin-bottom: 10px; }
+  .upload-zone-text { color: var(--muted); font-size: 13px; }
+
+  /* Settings */
+  .settings-section { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 16px; }
+  .settings-section-title { font-weight: 600; margin-bottom: 14px; font-size: 14px; }
+  .platform-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+  .platform-chip { display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 20px; border: 1px solid var(--border); cursor: pointer; font-size: 12px; font-weight: 500; transition: all 0.15s; user-select: none; }
+  .platform-chip.selected { background: rgba(124,106,245,0.15); border-color: var(--accent); color: var(--accent2); }
+
+  /* Auth screen */
+  #auth-screen { position: fixed; inset: 0; background: var(--bg); display: flex; align-items: center; justify-content: center; z-index: 200; flex-direction: column; gap: 24px; }
+  .auth-logo { font-family: 'Syne', sans-serif; font-size: 42px; font-weight: 800; letter-spacing: -1px; }
+  .auth-logo span { color: var(--accent2); }
+  .auth-subtitle { color: var(--muted); font-size: 15px; text-align: center; max-width: 280px; line-height: 1.5; }
+
+  /* Empty state */
+  .empty-state { text-align: center; padding: 60px 20px; }
+  .empty-icon { font-size: 48px; margin-bottom: 16px; opacity: 0.4; }
+  .empty-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 18px; margin-bottom: 8px; }
+  .empty-sub { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
+
+  /* Toast */
+  #toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px 20px; font-size: 13px; z-index: 999; transition: transform 0.3s ease; white-space: nowrap; box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
+  #toast.show { transform: translateX(-50%) translateY(0); }
+  #toast.success { border-color: var(--watching); }
+  #toast.error { border-color: var(--dropped); }
+
+  /* Recap placeholder */
+  .recap-btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 9px; font-size: 13px; font-weight: 500; background: var(--surface); border: 1px dashed var(--border); color: var(--muted); cursor: default; }
+  .recap-label { font-size: 9px; font-weight: 600; background: var(--border); color: var(--muted); padding: 1px 5px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.04em; }
+
+  /* Drive sync indicator */
+  .sync-status { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); padding: 8px 10px; }
+  .sync-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--watching); }
+  .sync-dot.syncing { background: var(--paused); animation: pulse 1s infinite; }
+  .sync-dot.error { background: var(--dropped); }
+  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+
+  /* Misc */
+  .divider { height: 1px; background: var(--border); margin: 16px 0; }
+  .section-label { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 12px; }
+  .hidden { display: none !important; }
+  .flex { display: flex; }
+  .items-center { align-items: center; }
+  .gap-2 { gap: 8px; }
+  .ml-auto { margin-left: auto; }
+  select option { background: var(--card); color: var(--text); }
+</style>
+</head>
+<body>
+
+<!-- Auth Screen -->
+<div id="auth-screen">
+  <div class="auth-logo">TV <span>World</span></div>
+  <div class="auth-subtitle">Your personal TV series tracker, connected to Google Drive</div>
+  <div id="gsi-button"></div>
+  <p style="color:var(--muted);font-size:12px;margin-top:8px;">Sign in to load your watchlist</p>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<!-- Main App -->
+<div id="app" class="hidden">
+  <!-- Sidebar -->
+  <div id="sidebar">
+    <div class="sidebar-logo">
+      <div class="wordmark">TV <span>World</span></div>
+      <div style="font-size:11px;color:var(--muted);margin-top:3px;">Series Tracker</div>
+    </div>
+    <div class="sidebar-nav">
+      <div class="nav-section">Library</div>
+      <div class="nav-item active" data-view="all" onclick="switchView('all')">
+        <span>🎬</span> All Series <span class="count" id="count-all">0</span>
+      </div>
+      <div class="nav-item" data-view="watching" onclick="switchView('watching')">
+        <span class="status-dot dot-watching"></span> Watching <span class="count" id="count-watching">0</span>
+      </div>
+      <div class="nav-item" data-view="plan" onclick="switchView('plan')">
+        <span class="status-dot dot-plan"></span> Plan to Watch <span class="count" id="count-plan">0</span>
+      </div>
+      <div class="nav-item" data-view="paused" onclick="switchView('paused')">
+        <span class="status-dot dot-paused"></span> Paused <span class="count" id="count-paused">0</span>
+      </div>
+      <div class="nav-item" data-view="completed" onclick="switchView('completed')">
+        <span class="status-dot dot-complete"></span> Completed <span class="count" id="count-completed">0</span>
+      </div>
+      <div class="nav-item" data-view="dropped" onclick="switchView('dropped')">
+        <span class="status-dot dot-dropped"></span> Dropped <span class="count" id="count-dropped">0</span>
+      </div>
+      <div class="divider"></div>
+      <div class="nav-section">Actions</div>
+      <div class="nav-item" onclick="openAddModal('tmdb')">
+        <span>🔍</span> Search TMDB
+      </div>
+      <div class="nav-item" onclick="openAddModal('manual')">
+        <span>✏️</span> Add Manually
+      </div>
+      <div class="nav-item" onclick="openIngestModal()">
+        <span>📂</span> Ingest JSON
+      </div>
+    </div>
+    <div class="sidebar-bottom">
+      <div class="nav-item" onclick="switchView('settings')">
+        <span>⚙️</span> Settings
+      </div>
+      <div class="sync-status">
+        <div class="sync-dot" id="sync-dot"></div>
+        <span id="sync-label">Synced</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main area -->
+  <div id="main">
+
+    <!-- All / filtered views -->
+    <div id="list-view">
+      <div class="page-header">
+        <div class="page-title" id="list-title">All Series</div>
+        <div class="page-sub" id="list-sub"></div>
+      </div>
+
+      <!-- Continue Watching -->
+      <div id="continue-section">
+        <div class="section-label">Continue Watching</div>
+        <div class="continue-strip" id="continue-strip"></div>
+      </div>
+
+      <div class="toolbar">
+        <div class="search-box">
+          <span style="color:var(--muted)">🔍</span>
+          <input type="text" id="search-input" placeholder="Search series…" oninput="renderGrid()">
+        </div>
+        <select class="form-input form-select btn-secondary" id="genre-filter" onchange="renderGrid()" style="width:auto;padding:8px 12px;">
+          <option value="">All Genres</option>
+        </select>
+        <button class="btn btn-primary" onclick="openAddModal('tmdb')">+ Add Series</button>
+      </div>
+
+      <div class="series-grid" id="series-grid"></div>
+      <div id="empty-grid" class="empty-state hidden">
+        <div class="empty-icon">📺</div>
+        <div class="empty-title">Nothing here yet</div>
+        <div class="empty-sub">Add your first series to get started</div>
+        <button class="btn btn-primary" onclick="openAddModal('tmdb')">+ Add Series</button>
+      </div>
+    </div>
+
+    <!-- Detail view -->
+    <div id="detail-view" class="hidden">
+      <button class="btn btn-ghost btn-sm" onclick="closeDetail()" style="margin-bottom:20px;">← Back</button>
+      <div class="detail-hero">
+        <div id="detail-poster-wrap"></div>
+        <div class="detail-meta">
+          <div class="detail-title" id="detail-title"></div>
+          <div class="detail-tags" id="detail-tags"></div>
+          <div class="detail-synopsis" id="detail-synopsis"></div>
+          <div style="margin-bottom:14px;" id="detail-platform"></div>
+          <div style="margin-bottom:14px;" id="detail-rating"></div>
+          <div class="detail-actions">
+            <select class="form-input form-select" id="detail-status-select" onchange="updateDetailStatus()" style="width:auto;">
+              <option value="Watching">Watching</option>
+              <option value="Plan to Watch">Plan to Watch</option>
+              <option value="Paused">Paused</option>
+              <option value="Completed">Completed</option>
+              <option value="Dropped">Dropped</option>
+            </select>
+            <button class="btn btn-secondary btn-sm" onclick="openEditModal()">Edit</button>
+            <button class="recap-btn">✨ Recap <span class="recap-label">Coming Soon</span></button>
+            <button class="btn btn-danger btn-sm" onclick="deleteSeries()">Delete</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Progress summary -->
+      <div id="detail-progress-bar" style="margin-bottom:24px;"></div>
+
+      <!-- Season list -->
+      <div class="section-label">Episodes</div>
+      <div id="seasons-container"></div>
+    </div>
+
+    <!-- Settings view -->
+    <div id="settings-view" class="hidden">
+      <div class="page-header">
+        <div class="page-title">Settings</div>
+        <div class="page-sub">Configure your TV World preferences</div>
+      </div>
+      <div class="settings-section">
+        <div class="settings-section-title">TMDB Integration</div>
+        <div class="form-group">
+          <label class="form-label">TMDB API Key (v3 Auth)</label>
+          <input class="form-input" type="password" id="tmdb-key-input" placeholder="Paste your TMDB API key…">
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="saveTmdbKey()">Save Key</button>
+        <span style="font-size:12px;color:var(--muted);margin-left:10px;" id="tmdb-key-status"></span>
+      </div>
+      <div class="settings-section">
+        <div class="settings-section-title">My Streaming Platforms</div>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Select platforms you subscribe to. TV World will flag which ones carry each series.</p>
+        <div class="platform-grid" id="platform-grid"></div>
+        <button class="btn btn-primary btn-sm" onclick="savePlatforms()" style="margin-top:14px;">Save Platforms</button>
+      </div>
+      <div class="settings-section">
+        <div class="settings-section-title">Data</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <button class="btn btn-secondary btn-sm" onclick="forceSave()">💾 Force Save to Drive</button>
+          <button class="btn btn-ghost btn-sm" onclick="exportJSON()">⬇ Export JSON</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ===================== MODALS ===================== -->
+
+<!-- Add/Edit Series Modal -->
+<div id="add-modal" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-title" id="add-modal-title">Add Series</div>
+    <button class="modal-close" onclick="closeModal('add-modal')">✕</button>
+
+    <!-- TMDB search tab -->
+    <div id="tmdb-tab">
+      <div class="form-group">
+        <label class="form-label">Search TMDB</label>
+        <div style="display:flex;gap:8px;">
+          <input class="form-input" id="tmdb-search-input" placeholder="Series title…" onkeydown="if(event.key==='Enter')searchTMDB()">
+          <button class="btn btn-primary" onclick="searchTMDB()">Search</button>
+        </div>
+      </div>
+      <div id="tmdb-results" class="hidden"></div>
+      <div style="margin-top:16px;">
+        <button class="btn btn-ghost btn-sm" onclick="switchTab('manual')">Switch to manual entry →</button>
+      </div>
+    </div>
+
+    <!-- Manual/edit tab -->
+    <div id="manual-tab" class="hidden">
+      <div class="form-group">
+        <label class="form-label">Title *</label>
+        <input class="form-input" id="m-title" placeholder="Series title">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Status</label>
+          <select class="form-input form-select" id="m-status">
+            <option>Watching</option>
+            <option>Plan to Watch</option>
+            <option>Paused</option>
+            <option>Completed</option>
+            <option>Dropped</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Total Seasons</label>
+          <input class="form-input" type="number" id="m-seasons" placeholder="e.g. 3" min="1">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Genres (comma-separated)</label>
+        <input class="form-input" id="m-genres" placeholder="Drama, Thriller">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Synopsis</label>
+        <textarea class="form-input" id="m-synopsis" rows="3" placeholder="Short description…" style="resize:vertical;"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Poster URL (optional)</label>
+        <input class="form-input" id="m-poster" placeholder="https://…">
+      </div>
+      <div class="form-group">
+        <label class="form-label">TMDB ID (optional, for provider lookup)</label>
+        <input class="form-input" id="m-tmdb-id" placeholder="e.g. 1396">
+      </div>
+      <div class="form-group">
+        <label class="form-label">My Rating</label>
+        <div class="rating-stars" id="rating-stars"></div>
+      </div>
+      <div id="season-builder-section">
+        <div class="divider"></div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+          <div style="font-weight:600;font-size:13px;">Seasons & Episodes</div>
+          <button class="btn btn-ghost btn-sm" onclick="addSeasonRow()">+ Season</button>
+        </div>
+        <div id="season-builder"></div>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px;">
+        <button class="btn btn-ghost" onclick="closeModal('add-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="saveSeries()" id="save-series-btn">Add Series</button>
+      </div>
+      <div style="margin-top:12px;">
+        <button class="btn btn-ghost btn-sm" id="back-to-tmdb-btn" onclick="switchTab('tmdb')">← Back to TMDB search</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Ingest JSON Modal -->
+<div id="ingest-modal" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-title">Ingest JSON File</div>
+    <button class="modal-close" onclick="closeModal('ingest-modal')">✕</button>
+    <p style="color:var(--muted);font-size:13px;margin-bottom:16px;">
+      Upload a <code style="background:var(--border);padding:1px 5px;border-radius:4px;">tvworld-series.json</code> or <code style="background:var(--border);padding:1px 5px;border-radius:4px;">tvworld-updates-YYYY-MM.json</code> file to add or update series.
+    </p>
+    <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click()">
+      <div class="upload-zone-icon">📂</div>
+      <div class="upload-zone-text">Click to choose a file, or drag and drop</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:6px;">Accepts .json files</div>
+    </div>
+    <input type="file" id="file-input" accept=".json" class="hidden" onchange="handleFileSelect(event)">
+    <div id="ingest-preview" class="hidden" style="margin-top:16px;">
+      <div class="divider"></div>
+      <div id="ingest-summary" style="font-size:13px;color:var(--muted);margin-bottom:12px;"></div>
+      <button class="btn btn-primary" onclick="confirmIngest()">Confirm Ingest</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== SCRIPT ===================== -->
+<script>
+// ─── Config ────────────────────────────────────────────────────────────────
+const CLIENT_ID = '669494100250-gvromuq72r7j0djmkd4vdbdq5damncj7.apps.googleusercontent.com';
+const DRIVE_FILENAME = 'tvworld-data.json';
+const GITHUB_PAGES_URL = window.location.href.split('?')[0];
+
+const PLATFORMS_LIST = [
+  'Netflix','Disney+','Apple TV+','Amazon Prime Video',
+  'MAX','Paramount+','Hulu','YouTube Premium','Crunchyroll'
+];
+
+// ─── State ─────────────────────────────────────────────────────────────────
+let accessToken = null;
+let driveFileId = null;
+let currentView = 'all';
+let currentSeriesId = null;
+let pendingIngestData = null;
+let editingSeriesId = null;
+let ratingValue = 0;
+let seasonBuilderCount = 0;
+
+let data = {
+  settings: { tmdb_api_key: '', subscribed_platforms: [] },
+  series: [],
+  upcoming: []
+};
+
+// ─── Auth ──────────────────────────────────────────────────────────────────
+window.onload = () => {
+  google.accounts.id.initialize({
+    client_id: CLIENT_ID,
+    callback: handleCredential,
+    auto_select: true
+  });
+  google.accounts.id.renderButton(document.getElementById('gsi-button'), {
+    theme: 'filled_black', size: 'large', text: 'continue_with', shape: 'pill'
+  });
+  google.accounts.id.prompt();
+};
+
+async function handleCredential(response) {
+  // Exchange for OAuth access token via token client
+  const tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: CLIENT_ID,
+    scope: 'https://www.googleapis.com/auth/drive.file',
+    callback: async (tokenResponse) => {
+      if (tokenResponse.error) { showToast('Auth failed', 'error'); return; }
+      accessToken = tokenResponse.access_token;
+      document.getElementById('auth-screen').classList.add('hidden');
+      document.getElementById('app').classList.remove('hidden');
+      await loadFromDrive();
+    }
+  });
+  tokenClient.requestAccessToken({ prompt: '' });
+}
+
+// ─── Drive ─────────────────────────────────────────────────────────────────
+function setSyncStatus(state) {
+  const dot = document.getElementById('sync-dot');
+  const label = document.getElementById('sync-label');
+  dot.className = 'sync-dot' + (state === 'syncing' ? ' syncing' : state === 'error' ? ' error' : '');
+  label.textContent = state === 'syncing' ? 'Saving…' : state === 'error' ? 'Save failed' : 'Synced';
+}
+
+async function loadFromDrive() {
+  try {
+    setSyncStatus('syncing');
+    const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=name='${DRIVE_FILENAME}'+and+trashed=false&spaces=drive&fields=files(id,name)`, {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+    const list = await res.json();
+    if (list.files && list.files.length > 0) {
+      driveFileId = list.files[0].id;
+      const content = await fetch(`https://www.googleapis.com/drive/v3/files/${driveFileId}?alt=media`, {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
+      data = await content.json();
+      data.settings = data.settings || { tmdb_api_key: '', subscribed_platforms: [] };
+      data.series = data.series || [];
+      data.upcoming = data.upcoming || [];
+    }
+    setSyncStatus('ok');
+    initUI();
+  } catch(e) {
+    setSyncStatus('error');
+    showToast('Could not load from Drive', 'error');
+    initUI();
+  }
+}
+
+async function saveToDrive() {
+  buildUpcoming();
+  const body = JSON.stringify(data, null, 2);
+  const blob = new Blob([body], { type: 'application/json' });
+  const form = new FormData();
+  const meta = JSON.stringify({ name: DRIVE_FILENAME, mimeType: 'application/json' });
+
+  try {
+    setSyncStatus('syncing');
+    let url, method;
+    if (driveFileId) {
+      url = `https://www.googleapis.com/upload/drive/v3/files/${driveFileId}?uploadType=multipart`;
+      method = 'PATCH';
+    } else {
+      url = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
+      method = 'POST';
+    }
+    form.append('metadata', new Blob([meta], { type: 'application/json' }));
+    form.append('file', blob);
+    const res = await fetch(url, {
+      method, headers: { Authorization: `Bearer ${accessToken}` }, body: form
+    });
+    const saved = await res.json();
+    if (!driveFileId) driveFileId = saved.id;
+    setSyncStatus('ok');
+  } catch(e) {
+    setSyncStatus('error');
+    showToast('Save failed', 'error');
+  }
+}
+
+// ─── Upcoming builder ──────────────────────────────────────────────────────
+function buildUpcoming() {
+  const today = new Date().toISOString().split('T')[0];
+  const upcoming = [];
+  for (const s of data.series) {
+    if (s.status !== 'Watching') continue;
+    const next = nextUnwatchedEpisode(s);
+    if (!next || !next.air_date) continue;
+    if (next.air_date > today) {
+      upcoming.push({
+        label: `${s.title} S${String(next.season).padStart(2,'0')}E${String(next.episode).padStart(2,'0')} — airs ${next.air_date}`,
+        date: next.air_date,
+        type: 'episode',
+        app: 'tvworld',
+        priority: 'normal',
+        url: GITHUB_PAGES_URL
+      });
+    }
+  }
+  upcoming.sort((a,b) => a.date.localeCompare(b.date));
+  data.upcoming = upcoming;
+}
+
+// ─── Init UI ───────────────────────────────────────────────────────────────
+function initUI() {
+  buildRatingStars();
+  buildPlatformGrid();
+  loadSettings();
+  updateCounts();
+  renderGrid();
+  switchView('all');
+}
+
+// ─── Views ─────────────────────────────────────────────────────────────────
+function switchView(view) {
+  currentView = view;
+  document.querySelectorAll('.nav-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.view === view);
+  });
+  document.getElementById('list-view').classList.toggle('hidden', view === 'settings' || currentSeriesId);
+  document.getElementById('detail-view').classList.add('hidden');
+  document.getElementById('settings-view').classList.toggle('hidden', view !== 'settings');
+
+  if (view !== 'settings') {
+    currentSeriesId = null;
+    document.getElementById('list-view').classList.remove('hidden');
+    const titles = { all:'All Series', watching:'Watching', plan:'Plan to Watch', paused:'Paused', completed:'Completed', dropped:'Dropped' };
+    document.getElementById('list-title').textContent = titles[view] || 'All Series';
+    renderGrid();
+    renderContinueStrip();
+    document.getElementById('continue-section').classList.toggle('hidden', view !== 'all' && view !== 'watching');
+  }
+}
+
+// ─── Grid ─────────────────────────────────────────────────────────────────
+function renderGrid() {
+  const query = document.getElementById('search-input').value.toLowerCase();
+  const genreFilter = document.getElementById('genre-filter').value;
+
+  let filtered = data.series.filter(s => {
+    if (currentView === 'watching' && s.status !== 'Watching') return false;
+    if (currentView === 'plan' && s.status !== 'Plan to Watch') return false;
+    if (currentView === 'paused' && s.status !== 'Paused') return false;
+    if (currentView === 'completed' && s.status !== 'Completed') return false;
+    if (currentView === 'dropped' && s.status !== 'Dropped') return false;
+    if (query && !s.title.toLowerCase().includes(query)) return false;
+    if (genreFilter && !(s.genres||[]).includes(genreFilter)) return false;
+    return true;
+  });
+
+  // Refresh genre filter
+  const genres = [...new Set(data.series.flatMap(s => s.genres||[]))].sort();
+  const gf = document.getElementById('genre-filter');
+  const currentGenre = gf.value;
+  gf.innerHTML = '<option value="">All Genres</option>' + genres.map(g=>`<option ${g===currentGenre?'selected':''}>${g}</option>`).join('');
+
+  const grid = document.getElementById('series-grid');
+  const empty = document.getElementById('empty-grid');
+  grid.innerHTML = '';
+
+  if (filtered.length === 0) { empty.classList.remove('hidden'); return; }
+  empty.classList.add('hidden');
+
+  filtered.forEach(s => {
+    const total = totalEpisodes(s);
+    const watched = watchedEpisodes(s);
+    const pct = total > 0 ? Math.round(watched/total*100) : 0;
+    const statusClass = { 'Watching':'watching','Plan to Watch':'plan','Paused':'paused','Completed':'complete','Dropped':'dropped' }[s.status] || 'plan';
+    const badgeClass = { 'Watching':'badge-watching','Plan to Watch':'badge-plan','Paused':'badge-paused','Completed':'badge-complete','Dropped':'badge-dropped' }[s.status] || '';
+    const next = nextUnwatchedEpisode(s);
+    const progressClass = s.status === 'Completed' ? 'complete' : 'watching';
+
+    const card = document.createElement('div');
+    card.className = 'series-card';
+    card.onclick = () => openDetail(s.id);
+    card.innerHTML = `
+      ${s.poster_url ? `<img class="series-poster" src="${s.poster_url}" alt="${s.title}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+        <div class="series-poster-placeholder" style="display:none">📺</div>`
+      : `<div class="series-poster-placeholder">📺</div>`}
+      <div class="series-card-body">
+        <div class="series-card-title">${s.title}</div>
+        <div class="series-card-meta">
+          <span class="status-badge ${badgeClass}">${s.status}</span>
+          ${s.total_seasons ? `<span>${s.total_seasons}S</span>` : ''}
+        </div>
+        ${total > 0 ? `
+        <div class="progress-bar"><div class="progress-fill ${progressClass}" style="width:${pct}%"></div></div>
+        <div style="font-size:10px;color:var(--muted);margin-top:4px;">${next ? `Next: S${String(next.season).padStart(2,'0')}E${String(next.episode).padStart(2,'0')}` : `${watched}/${total} eps`}</div>` : ''}
+      </div>`;
+    grid.appendChild(card);
+  });
+}
+
+// ─── Continue strip ───────────────────────────────────────────────────────
+function renderContinueStrip() {
+  const strip = document.getElementById('continue-strip');
+  const watching = data.series.filter(s => s.status === 'Watching');
+  if (watching.length === 0) { document.getElementById('continue-section').classList.add('hidden'); return; }
+  document.getElementById('continue-section').classList.remove('hidden');
+  strip.innerHTML = '';
+  watching.forEach(s => {
+    const next = nextUnwatchedEpisode(s);
+    const label = next ? `S${String(next.season).padStart(2,'0')}E${String(next.episode).padStart(2,'0')} · ${next.title||'Next episode'}` : 'Up to date';
+    const card = document.createElement('div');
+    card.className = 'continue-card';
+    card.onclick = () => { openDetail(s.id); };
+    card.innerHTML = `
+      ${s.poster_url ? `<img class="continue-thumb" src="${s.poster_url}" onerror="this.style.display='none'">` : `<div class="continue-thumb-ph">📺</div>`}
+      <div class="continue-info">
+        <div class="continue-title">${s.title}</div>
+        <div class="continue-ep">${label}</div>
+      </div>
+      <div class="continue-play">▶</div>`;
+    strip.appendChild(card);
+  });
+}
+
+// ─── Episode helpers ───────────────────────────────────────────────────────
+function totalEpisodes(s) {
+  return (s.seasons||[]).reduce((acc,sea) => acc + (sea.episodes||[]).length, 0);
+}
+function watchedEpisodes(s) {
+  return (s.seasons||[]).reduce((acc,sea) => acc + (sea.episodes||[]).filter(e=>e.watched).length, 0);
+}
+function nextUnwatchedEpisode(s) {
+  for (const sea of (s.seasons||[])) {
+    for (const ep of (sea.episodes||[])) {
+      if (!ep.watched) return { season: sea.season_number, episode: ep.episode_number, title: ep.title, air_date: ep.air_date };
+    }
+  }
+  return null;
+}
+
+// ─── Detail view ──────────────────────────────────────────────────────────
+function openDetail(id) {
+  currentSeriesId = id;
+  const s = data.series.find(x => x.id === id);
+  if (!s) return;
+  document.getElementById('list-view').classList.add('hidden');
+  document.getElementById('settings-view').classList.add('hidden');
+  document.getElementById('detail-view').classList.remove('hidden');
+
+  document.getElementById('detail-title').textContent = s.title;
+  document.getElementById('detail-synopsis').textContent = s.synopsis || 'No synopsis available.';
+  document.getElementById('detail-status-select').value = s.status;
+
+  // Poster
+  const pw = document.getElementById('detail-poster-wrap');
+  pw.innerHTML = s.poster_url
+    ? `<div class="detail-poster"><img src="${s.poster_url}" onerror="this.parentElement.outerHTML='<div class=\\'detail-poster-ph\\'>📺</div>'"></div>`
+    : `<div class="detail-poster-ph">📺</div>`;
+
+  // Tags
+  const tags = document.getElementById('detail-tags');
+  tags.innerHTML = '';
+  const statusClass = { 'Watching':'badge-watching','Plan to Watch':'badge-plan','Paused':'badge-paused','Completed':'badge-complete','Dropped':'badge-dropped' }[s.status]||'';
+  tags.innerHTML += `<span class="status-badge ${statusClass}">${s.status}</span>`;
+  (s.genres||[]).forEach(g => tags.innerHTML += `<span class="tag">${g}</span>`);
+  if (s.total_seasons) tags.innerHTML += `<span class="tag">${s.total_seasons} Season${s.total_seasons>1?'s':''}</span>`;
+
+  // Rating
+  const rEl = document.getElementById('detail-rating');
+  rEl.innerHTML = s.rating ? `<div style="font-size:13px;color:var(--muted)">My Rating: ${'⭐'.repeat(s.rating)}<span style="opacity:0.3">${'⭐'.repeat(5-s.rating)}</span></div>` : '';
+
+  // Platform
+  renderPlatformFlag(s);
+
+  // Progress
+  const total = totalEpisodes(s);
+  const watched = watchedEpisodes(s);
+  const pct = total > 0 ? Math.round(watched/total*100) : 0;
+  const pb = document.getElementById('detail-progress-bar');
+  pb.innerHTML = total > 0 ? `
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px;">
+      <div style="font-weight:600;font-size:13px;">${watched} / ${total} episodes watched</div>
+      <div style="font-size:12px;color:var(--muted);">${pct}%</div>
+    </div>
+    <div class="progress-bar" style="height:6px;"><div class="progress-fill watching" style="width:${pct}%"></div></div>` : '';
+
+  // Seasons
+  renderSeasons(s);
+}
+
+function renderPlatformFlag(s) {
+  const el = document.getElementById('detail-platform');
+  const myPlatforms = data.settings.subscribed_platforms || [];
+  const seriesPlatforms = s.streaming_platforms || [];
+  const matches = seriesPlatforms.filter(p => myPlatforms.includes(p));
+  if (seriesPlatforms.length === 0) { el.innerHTML = ''; return; }
+  if (matches.length > 0) {
+    el.innerHTML = matches.map(p => `<span class="platform-flag">📺 ${p}</span>`).join(' ');
+  } else {
+    el.innerHTML = `<span style="font-size:12px;color:var(--muted)">Not on your platforms</span>`;
+  }
+}
+
+function renderSeasons(s) {
+  const container = document.getElementById('seasons-container');
+  container.innerHTML = '';
+  (s.seasons||[]).forEach((sea, si) => {
+    const total = sea.episodes.length;
+    const watched = sea.episodes.filter(e=>e.watched).length;
+    const allW = watched === total && total > 0;
+    const block = document.createElement('div');
+    block.className = 'season-block';
+    block.innerHTML = `
+      <div class="season-header" onclick="toggleSeason(this)">
+        <div class="season-title">Season ${sea.season_number}</div>
+        <div class="season-progress">${watched}/${total}</div>
+        <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();bulkMarkSeason('${s.id}',${si},${!allW})" style="padding:3px 9px;font-size:11px;">${allW?'Unmark all':'Mark all watched'}</button>
+        <div class="season-chevron">▼</div>
+      </div>
+      <div class="season-episodes" style="display:none">
+        ${sea.episodes.map((ep,ei) => {
+          const today = new Date().toISOString().split('T')[0];
+          const future = ep.air_date && ep.air_date > today;
+          return `<div class="episode-row">
+            <div class="ep-check ${ep.watched?'watched':''}" onclick="toggleEp('${s.id}',${si},${ei})">
+              ${ep.watched ? '<svg width="10" height="10" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2.5" fill="none" stroke="#0e0f13" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>' : ''}
+            </div>
+            <div class="ep-num">${ep.episode_number}</div>
+            <div class="ep-title">${ep.title||`Episode ${ep.episode_number}`}</div>
+            ${ep.air_date ? `<div class="${future?'ep-future':'ep-airdate'}">${future?'🗓 '+ep.air_date:ep.air_date}</div>` : ''}
+          </div>`;
+        }).join('')}
+      </div>`;
+    container.appendChild(block);
+  });
+}
+
+function toggleSeason(header) {
+  const eps = header.nextElementSibling;
+  const chevron = header.querySelector('.season-chevron');
+  const isOpen = eps.style.display !== 'none';
+  eps.style.display = isOpen ? 'none' : 'block';
+  chevron.classList.toggle('open', !isOpen);
+}
+
+function toggleEp(sid, si, ei) {
+  const s = data.series.find(x => x.id === sid);
+  if (!s) return;
+  s.seasons[si].episodes[ei].watched = !s.seasons[si].episodes[ei].watched;
+  renderSeasons(s);
+  updateCounts();
+  saveToDrive();
+}
+
+function bulkMarkSeason(sid, si, watched) {
+  const s = data.series.find(x => x.id === sid);
+  if (!s) return;
+  s.seasons[si].episodes.forEach(e => e.watched = watched);
+  renderSeasons(s);
+  updateCounts();
+  saveToDrive();
+  showToast(watched ? 'Season marked watched' : 'Season unmarked', 'success');
+}
+
+function updateDetailStatus() {
+  const s = data.series.find(x => x.id === currentSeriesId);
+  if (!s) return;
+  s.status = document.getElementById('detail-status-select').value;
+  updateCounts();
+  saveToDrive();
+  openDetail(currentSeriesId); // refresh tags
+  showToast('Status updated', 'success');
+}
+
+function closeDetail() {
+  currentSeriesId = null;
+  document.getElementById('detail-view').classList.add('hidden');
+  document.getElementById('list-view').classList.remove('hidden');
+  renderGrid();
+  renderContinueStrip();
+}
+
+function deleteSeries() {
+  if (!confirm('Delete this series? This cannot be undone.')) return;
+  data.series = data.series.filter(x => x.id !== currentSeriesId);
+  closeDetail();
+  updateCounts();
+  saveToDrive();
+  showToast('Series deleted');
+}
+
+// ─── Counts ───────────────────────────────────────────────────────────────
+function updateCounts() {
+  document.getElementById('count-all').textContent = data.series.length;
+  document.getElementById('count-watching').textContent = data.series.filter(s=>s.status==='Watching').length;
+  document.getElementById('count-plan').textContent = data.series.filter(s=>s.status==='Plan to Watch').length;
+  document.getElementById('count-paused').textContent = data.series.filter(s=>s.status==='Paused').length;
+  document.getElementById('count-completed').textContent = data.series.filter(s=>s.status==='Completed').length;
+  document.getElementById('count-dropped').textContent = data.series.filter(s=>s.status==='Dropped').length;
+}
+
+// ─── Add/Edit Modal ───────────────────────────────────────────────────────
+function openAddModal(tab) {
+  editingSeriesId = null;
+  document.getElementById('add-modal-title').textContent = 'Add Series';
+  document.getElementById('save-series-btn').textContent = 'Add Series';
+  resetManualForm();
+  switchTab(tab || 'tmdb');
+  document.getElementById('add-modal').classList.remove('hidden');
+}
+
+function openEditModal() {
+  const s = data.series.find(x => x.id === currentSeriesId);
+  if (!s) return;
+  editingSeriesId = s.id;
+  document.getElementById('add-modal-title').textContent = 'Edit Series';
+  document.getElementById('save-series-btn').textContent = 'Save Changes';
+  switchTab('manual');
+  document.getElementById('back-to-tmdb-btn').classList.add('hidden');
+
+  document.getElementById('m-title').value = s.title;
+  document.getElementById('m-status').value = s.status;
+  document.getElementById('m-seasons').value = s.total_seasons || '';
+  document.getElementById('m-genres').value = (s.genres||[]).join(', ');
+  document.getElementById('m-synopsis').value = s.synopsis || '';
+  document.getElementById('m-poster').value = s.poster_url || '';
+  document.getElementById('m-tmdb-id').value = s.tmdb_id || '';
+  ratingValue = s.rating || 0;
+  renderRatingStars(ratingValue);
+
+  // Rebuild season builder from existing data
+  const sb = document.getElementById('season-builder');
+  sb.innerHTML = '';
+  seasonBuilderCount = 0;
+  (s.seasons||[]).forEach(sea => {
+    addSeasonRow(sea);
+  });
+
+  document.getElementById('add-modal').classList.remove('hidden');
+}
+
+function resetManualForm() {
+  ['m-title','m-genres','m-synopsis','m-poster','m-tmdb-id'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('m-seasons').value = '';
+  document.getElementById('m-status').value = 'Plan to Watch';
+  ratingValue = 0;
+  renderRatingStars(0);
+  document.getElementById('season-builder').innerHTML = '';
+  seasonBuilderCount = 0;
+  document.getElementById('back-to-tmdb-btn').classList.remove('hidden');
+}
+
+function switchTab(tab) {
+  document.getElementById('tmdb-tab').classList.toggle('hidden', tab !== 'tmdb');
+  document.getElementById('manual-tab').classList.toggle('hidden', tab !== 'manual');
+  if (tab === 'tmdb') {
+    document.getElementById('tmdb-results').innerHTML = '';
+    document.getElementById('tmdb-results').classList.add('hidden');
+  }
+}
+
+// ─── Season builder ───────────────────────────────────────────────────────
+function addSeasonRow(existing) {
+  seasonBuilderCount++;
+  const num = existing ? existing.season_number : seasonBuilderCount;
+  const epCount = existing ? existing.episodes.length : '';
+  const sb = document.getElementById('season-builder');
+  const row = document.createElement('div');
+  row.className = 'form-row';
+  row.style.alignItems = 'center';
+  row.dataset.seasonNum = num;
+  row.innerHTML = `
+    <div class="form-group" style="flex:0 0 80px;">
+      <label class="form-label">Season</label>
+      <input class="form-input" type="number" value="${num}" min="1" style="text-align:center;" readonly>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Episodes</label>
+      <input class="form-input" type="number" value="${epCount}" min="1" placeholder="How many?">
+    </div>
+    <button class="btn btn-ghost btn-sm" onclick="this.parentElement.remove()" style="margin-top:18px;flex-shrink:0;">✕</button>`;
+  sb.appendChild(row);
+}
+
+// ─── Save Series ──────────────────────────────────────────────────────────
+function saveSeries() {
+  const title = document.getElementById('m-title').value.trim();
+  if (!title) { showToast('Title is required', 'error'); return; }
+
+  const seasonRows = document.getElementById('season-builder').querySelectorAll('[data-season-num]');
+  let seasons = [];
+
+  if (editingSeriesId) {
+    // Preserve existing episode watch state
+    const existing = data.series.find(x => x.id === editingSeriesId);
+    seasonRows.forEach(row => {
+      const sNum = parseInt(row.dataset.seasonNum);
+      const epCount = parseInt(row.querySelector('input[type=number]:not([readonly])').value) || 0;
+      const existingSea = (existing.seasons||[]).find(s => s.season_number === sNum);
+      const episodes = [];
+      for (let i = 1; i <= epCount; i++) {
+        const existingEp = (existingSea?.episodes||[]).find(e => e.episode_number === i);
+        episodes.push(existingEp || { episode_number: i, title: `Episode ${i}`, watched: false });
+      }
+      if (epCount > 0) seasons.push({ season_number: sNum, episodes });
+    });
+  } else {
+    seasonRows.forEach(row => {
+      const sNum = parseInt(row.dataset.seasonNum);
+      const epCount = parseInt(row.querySelector('input[type=number]:not([readonly])').value) || 0;
+      const episodes = Array.from({length: epCount}, (_,i) => ({ episode_number: i+1, title: `Episode ${i+1}`, watched: false, air_date: null }));
+      if (epCount > 0) seasons.push({ season_number: sNum, episodes });
+    });
+  }
+
+  const seriesData = {
+    title,
+    status: document.getElementById('m-status').value,
+    total_seasons: parseInt(document.getElementById('m-seasons').value) || seasons.length || null,
+    genres: document.getElementById('m-genres').value.split(',').map(g=>g.trim()).filter(Boolean),
+    synopsis: document.getElementById('m-synopsis').value.trim(),
+    poster_url: document.getElementById('m-poster').value.trim(),
+    tmdb_id: document.getElementById('m-tmdb-id').value.trim() || null,
+    rating: ratingValue || null,
+    seasons
+  };
+
+  if (editingSeriesId) {
+    const idx = data.series.findIndex(x => x.id === editingSeriesId);
+    seriesData.id = editingSeriesId;
+    const old = data.series[idx];
+    seriesData.streaming_platforms = old.streaming_platforms || [];
+    data.series[idx] = { ...old, ...seriesData };
+    showToast('Series updated', 'success');
+  } else {
+    seriesData.id = crypto.randomUUID();
+    seriesData.streaming_platforms = [];
+    data.series.push(seriesData);
+    // Fetch streaming providers if tmdb_id
+    if (seriesData.tmdb_id && data.settings.tmdb_api_key) {
+      fetchProviders(seriesData.id, seriesData.tmdb_id);
+    }
+    showToast('Series added', 'success');
+  }
+
+  closeModal('add-modal');
+  updateCounts();
+  renderGrid();
+  renderContinueStrip();
+  saveToDrive();
+  if (editingSeriesId) openDetail(editingSeriesId);
+}
+
+// ─── TMDB ─────────────────────────────────────────────────────────────────
+async function searchTMDB() {
+  const q = document.getElementById('tmdb-search-input').value.trim();
+  if (!q) return;
+  const key = data.settings.tmdb_api_key;
+  if (!key) { showToast('Add your TMDB API key in Settings', 'error'); return; }
+
+  const res = await fetch(`https://api.themoviedb.org/3/search/tv?api_key=${key}&query=${encodeURIComponent(q)}&region=SG`);
+  const json = await res.json();
+  const results = json.results || [];
+  const container = document.getElementById('tmdb-results');
+
+  if (results.length === 0) { container.innerHTML = '<div style="padding:12px;color:var(--muted);font-size:13px;">No results found</div>'; container.classList.remove('hidden'); return; }
+
+  container.classList.remove('hidden');
+  container.className = 'tmdb-results';
+  container.innerHTML = results.slice(0, 8).map(r => `
+    <div class="tmdb-result-item" onclick="selectTMDB(${r.id})">
+      ${r.poster_path ? `<img class="tmdb-result-thumb" src="https://image.tmdb.org/t/p/w92${r.poster_path}">` : `<div class="tmdb-result-thumb" style="display:flex;align-items:center;justify-content:center;color:var(--muted)">📺</div>`}
+      <div>
+        <div class="tmdb-result-title">${r.name}</div>
+        <div class="tmdb-result-meta">${r.first_air_date?.split('-')[0]||'?'} · ${r.vote_average?.toFixed(1)||'?'} ★</div>
+      </div>
+    </div>`).join('');
+}
+
+async function selectTMDB(tmdbId) {
+  const key = data.settings.tmdb_api_key;
+  showToast('Fetching series data…');
+
+  try {
+    const [seriesRes, seasonsRes] = await Promise.all([
+      fetch(`https://api.themoviedb.org/3/tv/${tmdbId}?api_key=${key}`),
+      fetch(`https://api.themoviedb.org/3/tv/${tmdbId}?api_key=${key}&append_to_response=season/1,season/2,season/3,season/4,season/5`)
+    ]);
+    const s = await seriesRes.json();
+
+    // Fetch individual seasons
+    const totalSeasons = s.number_of_seasons || 1;
+    const seasonFetches = [];
+    for (let i = 1; i <= Math.min(totalSeasons, 10); i++) {
+      seasonFetches.push(fetch(`https://api.themoviedb.org/3/tv/${tmdbId}/season/${i}?api_key=${key}`).then(r=>r.json()));
+    }
+    const seasonData = await Promise.all(seasonFetches);
+
+    const seasons = seasonData.map(sea => ({
+      season_number: sea.season_number,
+      episodes: (sea.episodes||[]).map(ep => ({
+        episode_number: ep.episode_number,
+        title: ep.name,
+        air_date: ep.air_date || null,
+        watched: false
+      }))
+    }));
+
+    // Prefill manual form
+    switchTab('manual');
+    document.getElementById('m-title').value = s.name;
+    document.getElementById('m-synopsis').value = s.overview || '';
+    document.getElementById('m-poster').value = s.poster_path ? `https://image.tmdb.org/t/p/w500${s.poster_path}` : '';
+    document.getElementById('m-seasons').value = s.number_of_seasons || '';
+    document.getElementById('m-tmdb-id').value = tmdbId;
+    document.getElementById('m-genres').value = (s.genres||[]).map(g=>g.name).join(', ');
+
+    // Build season rows
+    const sb = document.getElementById('season-builder');
+    sb.innerHTML = '';
+    seasonBuilderCount = 0;
+    seasons.forEach(sea => addSeasonRow(sea));
+
+    showToast('TMDB data loaded — review and save', 'success');
+  } catch(e) {
+    showToast('TMDB fetch failed', 'error');
+  }
+}
+
+async function fetchProviders(seriesId, tmdbId) {
+  const key = data.settings.tmdb_api_key;
+  if (!key) return;
+  try {
+    const res = await fetch(`https://api.themoviedb.org/3/tv/${tmdbId}/watch/providers?api_key=${key}`);
+    const json = await res.json();
+    const sg = json.results?.SG;
+    const all = [...(sg?.flatrate||[]), ...(sg?.free||[])].map(p => p.provider_name);
+    const s = data.series.find(x => x.id === seriesId);
+    if (s) { s.streaming_platforms = [...new Set(all)]; saveToDrive(); }
+  } catch(e) {}
+}
+
+// ─── JSON Ingest ──────────────────────────────────────────────────────────
+function openIngestModal() {
+  pendingIngestData = null;
+  document.getElementById('ingest-preview').classList.add('hidden');
+  document.getElementById('file-input').value = '';
+  document.getElementById('ingest-modal').classList.remove('hidden');
+}
+
+function handleFileSelect(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const json = JSON.parse(e.target.result);
+      pendingIngestData = json;
+      const series = Array.isArray(json) ? json : (json.series || [json]);
+      document.getElementById('ingest-summary').textContent = `Found ${series.length} series in file. Click Confirm to ingest.`;
+      document.getElementById('ingest-preview').classList.remove('hidden');
+    } catch(err) {
+      showToast('Invalid JSON file', 'error');
+    }
+  };
+  reader.readAsText(file);
+}
+
+function confirmIngest() {
+  if (!pendingIngestData) return;
+  const series = Array.isArray(pendingIngestData) ? pendingIngestData : (pendingIngestData.series || [pendingIngestData]);
+  let added = 0, updated = 0;
+
+  series.forEach(incoming => {
+    const norm = normalizeIngestedSeries(incoming);
+    const existing = data.series.find(s => s.id === norm.id || s.title.toLowerCase() === norm.title.toLowerCase());
+    if (existing) {
+      // Merge: preserve watch state, update metadata
+      mergeSeriesUpdate(existing, norm);
+      updated++;
+    } else {
+      norm.id = norm.id || crypto.randomUUID();
+      data.series.push(norm);
+      added++;
+    }
+  });
+
+  closeModal('ingest-modal');
+  updateCounts();
+  renderGrid();
+  saveToDrive();
+  showToast(`Ingested: ${added} added, ${updated} updated`, 'success');
+}
+
+function normalizeIngestedSeries(raw) {
+  // Normalize both manual JSON uploads and tvworld-updates format
+  const seasons = (raw.seasons||[]).map(sea => ({
+    season_number: sea.season_number,
+    episodes: (sea.episodes||[]).map(ep => ({
+      episode_number: ep.episode_number,
+      title: ep.title || ep.name || `Episode ${ep.episode_number}`,
+      air_date: ep.air_date || null,
+      watched: ep.watched || false
+    }))
+  }));
+  return {
+    id: raw.id || null,
+    title: raw.title || raw.name || 'Untitled',
+    status: raw.status || 'Plan to Watch',
+    total_seasons: raw.total_seasons || raw.number_of_seasons || seasons.length || null,
+    genres: raw.genres || [],
+    synopsis: raw.synopsis || raw.overview || '',
+    poster_url: raw.poster_url || (raw.poster_path ? `https://image.tmdb.org/t/p/w500${raw.poster_path}` : ''),
+    tmdb_id: raw.tmdb_id || null,
+    rating: raw.rating || null,
+    streaming_platforms: raw.streaming_platforms || [],
+    seasons
+  };
+}
+
+function mergeSeriesUpdate(existing, incoming) {
+  // Update metadata; preserve watched state per episode
+  existing.title = incoming.title || existing.title;
+  existing.synopsis = incoming.synopsis || existing.synopsis;
+  existing.poster_url = incoming.poster_url || existing.poster_url;
+  existing.total_seasons = incoming.total_seasons || existing.total_seasons;
+  existing.genres = incoming.genres.length ? incoming.genres : existing.genres;
+  existing.streaming_platforms = incoming.streaming_platforms.length ? incoming.streaming_platforms : existing.streaming_platforms;
+  // Merge seasons: add new episodes, keep watched state
+  incoming.seasons.forEach(inSea => {
+    let exSea = (existing.seasons||[]).find(s => s.season_number === inSea.season_number);
+    if (!exSea) {
+      existing.seasons = existing.seasons || [];
+      existing.seasons.push(inSea);
+    } else {
+      inSea.episodes.forEach(inEp => {
+        const exEp = exSea.episodes.find(e => e.episode_number === inEp.episode_number);
+        if (!exEp) {
+          exSea.episodes.push(inEp);
+        } else {
+          exEp.title = inEp.title || exEp.title;
+          exEp.air_date = inEp.air_date || exEp.air_date;
+          // preserve exEp.watched
+        }
+      });
+    }
+  });
+  existing.seasons = (existing.seasons||[]).sort((a,b) => a.season_number - b.season_number);
+}
+
+// ─── Settings ─────────────────────────────────────────────────────────────
+function loadSettings() {
+  document.getElementById('tmdb-key-input').value = data.settings.tmdb_api_key || '';
+  document.getElementById('tmdb-key-status').textContent = data.settings.tmdb_api_key ? '✓ Key saved' : '';
+  buildPlatformGrid();
+}
+
+function saveTmdbKey() {
+  data.settings.tmdb_api_key = document.getElementById('tmdb-key-input').value.trim();
+  document.getElementById('tmdb-key-status').textContent = data.settings.tmdb_api_key ? '✓ Key saved' : '';
+  saveToDrive();
+  showToast('TMDB key saved', 'success');
+}
+
+function buildPlatformGrid() {
+  const grid = document.getElementById('platform-grid');
+  if (!grid) return;
+  const selected = data.settings.subscribed_platforms || [];
+  grid.innerHTML = PLATFORMS_LIST.map(p => `
+    <div class="platform-chip ${selected.includes(p)?'selected':''}" data-platform="${p}" onclick="togglePlatform(this)">
+      ${p}
+    </div>`).join('');
+}
+
+function togglePlatform(el) {
+  el.classList.toggle('selected');
+}
+
+function savePlatforms() {
+  const chips = document.querySelectorAll('.platform-chip.selected');
+  data.settings.subscribed_platforms = [...chips].map(c => c.dataset.platform);
+  saveToDrive();
+  showToast('Platforms saved', 'success');
+}
+
+// ─── Rating stars ──────────────────────────────────────────────────────────
+function buildRatingStars() {
+  renderRatingStars(0);
+}
+
+function renderRatingStars(val) {
+  const container = document.getElementById('rating-stars');
+  if (!container) return;
+  container.innerHTML = '';
+  for (let i = 1; i <= 5; i++) {
+    const star = document.createElement('span');
+    star.className = 'star' + (i <= val ? ' filled' : '');
+    star.textContent = '★';
+    star.onclick = () => { ratingValue = i; renderRatingStars(i); };
+    star.onmouseenter = () => renderRatingStars(i);
+    star.onmouseleave = () => renderRatingStars(ratingValue);
+    container.appendChild(star);
+  }
+}
+
+// ─── Helpers ───────────────────────────────────────────────────────────────
+function closeModal(id) {
+  document.getElementById(id).classList.add('hidden');
+}
+
+function showToast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show' + (type ? ' '+type : '');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function forceSave() { saveToDrive(); showToast('Saved to Drive', 'success'); }
+
+function exportJSON() {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'tvworld-data.json';
+  a.click();
+}
+
+// ─── Drag & drop ingest ───────────────────────────────────────────────────
+const uploadZone = document.getElementById('upload-zone');
+if (uploadZone) {
+  uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+  uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+  uploadZone.addEventListener('drop', e => {
+    e.preventDefault();
+    uploadZone.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file) {
+      const fakeEvt = { target: { files: [file] } };
+      handleFileSelect(fakeEvt);
+    }
+  });
+}
+
+// ─── Close modals on overlay click ────────────────────────────────────────
+['add-modal','ingest-modal'].forEach(id => {
+  document.getElementById(id).addEventListener('click', function(e) {
+    if (e.target === this) closeModal(id);
+  });
+});
+</script>
+</body>
+</html>
