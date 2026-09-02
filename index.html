@@ -118,7 +118,7 @@
   .continue-play { width: 30px; height: 30px; border-radius: 50%; background: var(--watching); display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #0e0f13; font-size: 12px; }
 
   /* Detail view */
-  #detail-view { display: none; }
+  #detail-view { display: block; }
   .detail-hero { display: flex; gap: 28px; margin-bottom: 28px; align-items: flex-start; }
   .detail-poster { width: 160px; flex-shrink: 0; border-radius: 14px; overflow: hidden; }
   .detail-poster img { width: 100%; display: block; }
@@ -1135,7 +1135,7 @@ async function selectTMDB(tmdbId) {
     // Fetch individual seasons
     const totalSeasons = s.number_of_seasons || 1;
     const seasonFetches = [];
-    for (let i = 1; i <= Math.min(totalSeasons, 10); i++) {
+    for (let i = 1; i <= Math.min(totalSeasons, 50); i++) {
       seasonFetches.push(fetch(`https://api.themoviedb.org/3/tv/${tmdbId}/season/${i}?api_key=${key}`).then(r=>r.json()));
     }
     const seasonData = await Promise.all(seasonFetches);
