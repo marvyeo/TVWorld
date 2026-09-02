@@ -544,7 +544,11 @@ window.onload = () => {
     client_id: CLIENT_ID,
     scope: 'https://www.googleapis.com/auth/drive.file',
     callback: async (tokenResponse) => {
-      if (tokenResponse.error) { showToast('Auth failed', 'error'); return; }
+      if (tokenResponse.error) {
+        // Silent attempt failed — show the sign-in button
+        showSignInButton();
+        return;
+      }
       accessToken = tokenResponse.access_token;
       document.getElementById('auth-screen').classList.add('hidden');
       document.getElementById('app').classList.remove('hidden');
@@ -552,13 +556,17 @@ window.onload = () => {
     }
   });
 
-  // Try silent token first (returns immediately if session exists)
-  tokenClient.requestAccessToken({ prompt: 'none' });
+  // Always show the button immediately
+  showSignInButton();
 
-  // Render manual sign-in button as fallback
+  // Also attempt silent sign-in — if it succeeds, the callback above will hide the auth screen
+  tokenClient.requestAccessToken({ prompt: 'none' });
+};
+
+function showSignInButton() {
   document.getElementById('gsi-button').innerHTML =
     '<button class="btn btn-primary" style="padding:12px 28px;font-size:15px;" onclick="tokenClient.requestAccessToken({prompt:\'select_account\'})">Sign in with Google</button>';
-};
+}
 
 // ─── Drive ─────────────────────────────────────────────────────────────────
 function setSyncStatus(state) {
