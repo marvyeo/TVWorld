@@ -1304,18 +1304,17 @@ async function refreshFromTMDB() {
   }
 }
 
-
+async function fetchProviders(seriesId, tmdbId) {
   const key = data.settings.tmdb_api_key;
   if (!key) return;
   try {
     const res = await fetch(`https://api.themoviedb.org/3/tv/${tmdbId}/watch/providers?api_key=${key}`);
     const json = await res.json();
     const sg = json.results?.SG;
-    const all = [...(sg?.flatrate||[]), ...(sg?.ads||[]), ...(sg?.free||[])].map(p => p.provider_name);
+    const all = [...(sg?.flatrate||[]), ...(sg?.ads||[]), ...(sg?.buy||[]), ...(sg?.free||[])].map(p => p.provider_name);
     const s = data.series.find(x => x.id === seriesId);
     if (s) {
       s.streaming_platforms = [...new Set(all)];
-      // Re-render the platform flag if this series is currently open
       if (currentSeriesId === seriesId) renderPlatformFlag(s);
       saveToDrive();
     }
