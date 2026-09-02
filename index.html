@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TV World</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<script src="https://accounts.google.com/gsi/client" onload="onGoogleLibraryLoad()"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Syne:wght@700;800&display=swap');
 
@@ -541,6 +541,20 @@ let tokenClient;
 
 function startSignIn() {
   if (!tokenClient) {
+    showToast('Still loading — try again in a moment');
+    return;
+  }
+  tokenClient.requestAccessToken({ prompt: 'select_account' });
+}
+
+// GSI library calls this once it's ready
+window.addEventListener('load', () => {
+  // Poll until google.accounts is available (handles async defer timing)
+  const init = () => {
+    if (typeof google === 'undefined' || !google.accounts) {
+      setTimeout(init, 100);
+      return;
+    }
     tokenClient = google.accounts.oauth2.initTokenClient({
       client_id: CLIENT_ID,
       scope: 'https://www.googleapis.com/auth/drive.file',
@@ -555,25 +569,9 @@ function startSignIn() {
         await loadFromDrive();
       }
     });
-  }
-  tokenClient.requestAccessToken({ prompt: 'select_account' });
-}
-
-// Auto sign-in on return visits once GSI library is ready
-function onGoogleLibraryLoad() {
-  tokenClient = google.accounts.oauth2.initTokenClient({
-    client_id: CLIENT_ID,
-    scope: 'https://www.googleapis.com/auth/drive.file',
-    callback: async (tokenResponse) => {
-      if (tokenResponse.error) return; // silent fail — button is already visible
-      accessToken = tokenResponse.access_token;
-      document.getElementById('auth-screen').classList.add('hidden');
-      document.getElementById('app').classList.remove('hidden');
-      await loadFromDrive();
-    }
-  });
-  tokenClient.requestAccessToken({ prompt: 'none' });
-}
+  };
+  init();
+});
 
 // ─── Drive ─────────────────────────────────────────────────────────────────
 function setSyncStatus(state) {
