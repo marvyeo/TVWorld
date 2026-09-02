@@ -870,8 +870,11 @@ function renderSeasons(s) {
               ${ep.watched ? '<svg width="10" height="10" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2.5" fill="none" stroke="#0e0f13" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>' : ''}
             </div>
             <div class="ep-num">${ep.episode_number}</div>
-            <div class="ep-title">${ep.title||`Episode ${ep.episode_number}`}</div>
-            ${ep.air_date ? `<div class="${future?'ep-future':'ep-airdate'}">${future?'🗓 '+ep.air_date:ep.air_date}</div>` : ''}
+            <div class="ep-title">
+              <div>${ep.title||`Episode ${ep.episode_number}`}</div>
+              ${ep.synopsis ? `<div style="font-size:11px;color:var(--muted);margin-top:2px;line-height:1.4;max-width:480px;">${ep.synopsis}</div>` : ''}
+            </div>
+            ${ep.air_date ? `<div class="${future?'ep-future':'ep-airdate'}" style="flex-shrink:0;">${future?'🗓 '+ep.air_date:ep.air_date}</div>` : ''}
           </div>`;
         }).join('')}
       </div>`;
@@ -891,7 +894,46 @@ function toggleEp(sid, si, ei) {
   const s = data.series.find(x => x.id === sid);
   if (!s) return;
   s.seasons[si].episodes[ei].watched = !s.seasons[si].episodes[ei].watched;
-  renderSeasons(s);
+  const watched = s.seasons[si].episodes[ei].watched;
+
+  // In-place DOM update — don't re-render the whole season list
+  const blocks = document.querySelectorAll('#seasons-container .season-block');
+  const block = blocks[si];
+  if (block) {
+    // Update checkbox
+    const checks = block.querySelectorAll('.ep-check');
+    const check = checks[ei];
+    if (check) {
+      check.classList.toggle('watched', watched);
+      check.innerHTML = watched
+        ? '<svg width="10" height="10" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2.5" fill="none" stroke="#0e0f13" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+        : '';
+    }
+    // Update season progress count
+    const total = s.seasons[si].episodes.length;
+    const watchedCount = s.seasons[si].episodes.filter(e => e.watched).length;
+    const allW = watchedCount === total && total > 0;
+    const prog = block.querySelector('.season-progress');
+    if (prog) prog.textContent = `${watchedCount}/${total}`;
+    // Update bulk button label
+    const bulkBtn = block.querySelector('.season-header .btn');
+    if (bulkBtn) bulkBtn.textContent = allW ? 'Unmark all' : 'Mark all watched';
+  }
+
+  // Update progress bar in hero
+  const totalEps = totalEpisodes(s);
+  const watchedEps = watchedEpisodes(s);
+  const pct = totalEps > 0 ? Math.round(watchedEps / totalEps * 100) : 0;
+  const pb = document.getElementById('detail-progress-bar');
+  if (pb) {
+    pb.innerHTML = totalEps > 0 ? `
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px;">
+        <div style="font-weight:600;font-size:13px;">${watchedEps} / ${totalEps} episodes watched</div>
+        <div style="font-size:12px;color:var(--muted);">${pct}%</div>
+      </div>
+      <div class="progress-bar" style="height:6px;"><div class="progress-fill watching" style="width:${pct}%"></div></div>` : '';
+  }
+
   updateCounts();
   saveToDrive();
 }
@@ -1144,7 +1186,8 @@ async function selectTMDB(tmdbId) {
       season_number: sea.season_number,
       episodes: (sea.episodes||[]).map(ep => ({
         episode_number: ep.episode_number,
-        title: ep.name,
+        title: ep.name || `Episode ${ep.episode_number}`,
+        synopsis: ep.overview || null,
         air_date: ep.air_date || null,
         watched: false
       }))
