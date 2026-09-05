@@ -252,6 +252,129 @@
   .type-toggle { display: flex; gap: 6px; margin-bottom: 16px; }
   .type-btn { flex: 1; padding: 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--muted); font-size: 12px; font-weight: 600; cursor: pointer; text-align: center; transition: all 0.15s; }
   .type-btn.active { border-color: var(--accent); background: rgba(124,106,245,0.12); color: var(--accent2); }
+
+  /* ─── Bottom nav (mobile only) ─── */
+  #bottom-nav { display: none; }
+
+  /* ─── Mobile breakpoint ─── */
+  @media (max-width: 640px) {
+    /* Hide sidebar, show bottom nav */
+    #sidebar { display: none; }
+    #bottom-nav {
+      display: flex;
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      z-index: 90;
+      padding: 0;
+      height: 60px;
+    }
+    .bn-item {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 500;
+      padding: 8px 4px;
+      transition: color 0.15s;
+      position: relative;
+    }
+    .bn-item.active { color: var(--accent2); }
+    .bn-item .bn-icon { font-size: 20px; line-height: 1; }
+    .bn-item .bn-label { font-size: 9px; }
+    .bn-dot {
+      width: 5px; height: 5px; border-radius: 50%;
+      position: absolute; top: 6px; right: calc(50% - 14px);
+    }
+
+    /* FAB add button */
+    #mobile-fab {
+      position: fixed;
+      bottom: 72px; right: 18px;
+      width: 52px; height: 52px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #fff;
+      font-size: 26px;
+      border: none;
+      cursor: pointer;
+      z-index: 91;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 4px 20px rgba(124,106,245,0.4);
+      transition: background 0.15s;
+    }
+    #mobile-fab:hover { background: var(--accent2); }
+
+    /* Main area — full width, bottom padding for nav */
+    #app { flex-direction: column; }
+    #main { padding: 16px; padding-bottom: 76px; }
+
+    /* Page title smaller */
+    .page-title { font-size: 22px; }
+
+    /* Grid: 2 columns on mobile */
+    .series-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+
+    /* Continue strip — full width cards */
+    .continue-card { width: 220px; }
+
+    /* Toolbar: stack search full width, filters on one row */
+    .toolbar { gap: 8px; }
+    .search-box { min-width: 100%; order: -1; }
+    #type-filter, #genre-filter { flex: 1; font-size: 12px; padding: 7px 10px; }
+    .toolbar > .btn { display: none; } /* hide desktop + Add — use FAB instead */
+
+    /* Detail hero: stack poster above meta on mobile */
+    .detail-hero { flex-direction: column; gap: 16px; }
+    .detail-poster { width: 120px; }
+    .detail-poster-ph { width: 120px; height: 180px; font-size: 36px; }
+    .detail-title { font-size: 22px; }
+    .detail-synopsis { max-width: 100%; }
+    .detail-actions { gap: 6px; }
+    .detail-actions .btn, .detail-actions .recap-btn { font-size: 11px; padding: 6px 10px; }
+
+    /* Season header — tighter on mobile */
+    .season-header { padding: 10px 12px; gap: 8px; }
+    .season-title { font-size: 13px; }
+    .episode-row { padding: 8px 12px; gap: 8px; }
+    .ep-num { width: 22px; }
+
+    /* Modal — full screen on mobile */
+    .modal-overlay { padding: 0; align-items: flex-end; }
+    .modal {
+      border-radius: 20px 20px 0 0;
+      max-width: 100%;
+      max-height: 92vh;
+      padding: 20px 16px;
+    }
+    .modal-lg { max-width: 100%; }
+
+    /* Person modal hero: stack */
+    .person-hero { flex-direction: column; align-items: center; text-align: center; gap: 12px; }
+    .person-bio { max-height: 80px; }
+
+    /* Filmography grid: 3 cols on mobile */
+    .filmography-grid { grid-template-columns: repeat(3, 1fr); max-height: 280px; }
+
+    /* Cast strip cards slightly smaller */
+    .cast-card { width: 76px; }
+    .cast-photo, .cast-photo-ph { width: 60px; height: 60px; font-size: 20px; }
+
+    /* Toast — above bottom nav */
+    #toast { bottom: 72px; }
+
+    /* Settings — reduce padding */
+    .settings-section { padding: 14px; }
+
+    /* Filter dropdowns on same row */
+    .toolbar { flex-wrap: wrap; }
+  }
 </style>
 </head>
 <body>
@@ -416,6 +539,33 @@
   </div>
 </div>
 
+<!-- Mobile bottom nav -->
+<nav id="bottom-nav">
+  <div class="bn-item active" data-view="all" onclick="switchView('all');setActiveBnItem(this)">
+    <span class="bn-icon">🎬</span>
+    <span class="bn-label">All</span>
+  </div>
+  <div class="bn-item" data-view="watching" onclick="switchView('watching');setActiveBnItem(this)">
+    <span class="bn-icon">▶</span>
+    <span class="bn-label">Watching</span>
+  </div>
+  <div class="bn-item" data-view="movies" onclick="switchView('movies');setActiveBnItem(this)">
+    <span class="bn-icon">🍿</span>
+    <span class="bn-label">Movies</span>
+  </div>
+  <div class="bn-item" data-view="plan" onclick="switchView('plan');setActiveBnItem(this)">
+    <span class="bn-icon">🔖</span>
+    <span class="bn-label">Plan</span>
+  </div>
+  <div class="bn-item" data-view="settings" onclick="switchView('settings');setActiveBnItem(this)">
+    <span class="bn-icon">⚙️</span>
+    <span class="bn-label">Settings</span>
+  </div>
+</nav>
+
+<!-- Mobile FAB -->
+<button id="mobile-fab" onclick="openAddModal('tmdb')" title="Add to library">+</button>
+
 <!-- Add/Edit Modal -->
 <div id="add-modal" class="modal-overlay hidden">
   <div class="modal">
@@ -493,8 +643,8 @@
         <input class="form-input" id="m-tmdb-id" placeholder="e.g. 1396">
       </div>
       <div class="form-group">
-        <label class="form-label">Release Year (optional)</label>
-        <input class="form-input" type="number" id="m-year" placeholder="e.g. 2025">
+        <label class="form-label">Release Date (optional)</label>
+        <input class="form-input" type="date" id="m-year" placeholder="e.g. 2025-05-01">
       </div>
       <div class="form-group">
         <label class="form-label">My Rating</label>
@@ -709,10 +859,18 @@ function initUI() {
   switchView('all');
 }
 
+function setActiveBnItem(el) {
+  document.querySelectorAll('.bn-item').forEach(b => b.classList.remove('active'));
+  if (el) el.classList.add('active');
+}
+
 // ─── Views ─────────────────────────────────────────────────────────────────
 function switchView(view) {
   currentView = view;
+  // Sync sidebar nav
   document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.view === view));
+  // Sync bottom nav
+  document.querySelectorAll('.bn-item').forEach(el => el.classList.toggle('active', el.dataset.view === view));
   document.getElementById('list-view').classList.toggle('hidden', view === 'settings' || !!currentSeriesId);
   document.getElementById('detail-view').classList.add('hidden');
   document.getElementById('settings-view').classList.toggle('hidden', view !== 'settings');
@@ -725,6 +883,27 @@ function switchView(view) {
     renderContinueStrip();
     document.getElementById('continue-section').classList.toggle('hidden', view !== 'all' && view !== 'watching');
   }
+}
+
+// ─── Date helpers ──────────────────────────────────────────────────────────
+function formatReleaseDate(dateStr) {
+  if (!dateStr) return '';
+  const today = new Date().toISOString().split('T')[0];
+  const isUpcoming = dateStr > today;
+  const d = new Date(dateStr + 'T00:00:00');
+  const formatted = d.toLocaleDateString('en-SG', { day: 'numeric', month: 'short', year: 'numeric' });
+  return isUpcoming
+    ? `<span style="color:var(--paused);font-size:10px;">🗓 ${formatted}</span>`
+    : `<span style="font-size:10px;">${formatted}</span>`;
+}
+
+function formatReleaseDateFull(dateStr) {
+  if (!dateStr) return '';
+  const today = new Date().toISOString().split('T')[0];
+  const isUpcoming = dateStr > today;
+  const d = new Date(dateStr + 'T00:00:00');
+  const formatted = d.toLocaleDateString('en-SG', { day: 'numeric', month: 'long', year: 'numeric' });
+  return isUpcoming ? `🗓 ${formatted}` : formatted;
 }
 
 // ─── Grid ──────────────────────────────────────────────────────────────────
@@ -782,7 +961,7 @@ function renderGrid() {
         <div class="series-card-title">${s.title}</div>
         <div class="series-card-meta">
           <span class="status-badge ${badgeClass}">${s.status}</span>
-          ${isMovie ? (s.year ? `<span>${s.year}</span>` : '') : (s.total_seasons ? `<span>${s.total_seasons}S</span>` : '')}
+          ${isMovie ? formatReleaseDate(s.year) : (s.total_seasons ? `<span>${s.total_seasons}S</span>` : '')}
         </div>
         ${!isMovie && total > 0 ? `
           <div class="progress-bar"><div class="progress-fill ${progressClass}" style="width:${pct}%"></div></div>
@@ -834,6 +1013,8 @@ function openDetail(id) {
   const s = data.series.find(x => x.id === id);
   if (!s) return;
   const isMovie = s.type === 'movie';
+  const fab = document.getElementById('mobile-fab');
+  if (fab) fab.style.display = 'none';
 
   document.getElementById('list-view').classList.add('hidden');
   document.getElementById('settings-view').classList.add('hidden');
@@ -863,7 +1044,7 @@ function openDetail(id) {
   (s.genres||[]).forEach(g => tags.innerHTML += `<span class="tag">${g}</span>`);
   if (!isMovie && s.total_seasons) tags.innerHTML += `<span class="tag">${s.total_seasons} Season${s.total_seasons>1?'s':''}</span>`;
   if (isMovie && s.runtime) tags.innerHTML += `<span class="tag">⏱ ${s.runtime} min</span>`;
-  if (s.year) tags.innerHTML += `<span class="tag">${s.year}</span>`;
+  if (s.year) tags.innerHTML += `<span class="tag">${formatReleaseDateFull(s.year)}</span>`;
 
   document.getElementById('detail-rating').innerHTML = s.rating
     ? `<div style="font-size:13px;color:var(--muted)">My Rating: ${'⭐'.repeat(s.rating)}<span style="opacity:0.3">${'⭐'.repeat(5-s.rating)}</span></div>` : '';
@@ -1143,6 +1324,8 @@ function closeDetail() {
   currentSeriesId = null;
   document.getElementById('detail-view').classList.add('hidden');
   document.getElementById('list-view').classList.remove('hidden');
+  const fab = document.getElementById('mobile-fab');
+  if (fab) fab.style.display = '';
   renderGrid();
   renderContinueStrip();
 }
@@ -1197,8 +1380,7 @@ function openEditModal() {
   document.getElementById('m-synopsis').value = s.synopsis || '';
   document.getElementById('m-poster').value = s.poster_url || '';
   document.getElementById('m-tmdb-id').value = s.tmdb_id || '';
-  document.getElementById('m-year').value = s.year || '';
-  ratingValue = s.rating || 0;
+  document.getElementById('m-year').value = s.year || '';  ratingValue = s.rating || 0;
   renderRatingStars(ratingValue);
   const sb = document.getElementById('season-builder');
   sb.innerHTML = '';
@@ -1305,7 +1487,7 @@ function saveSeries() {
     synopsis: document.getElementById('m-synopsis').value.trim(),
     poster_url: document.getElementById('m-poster').value.trim(),
     tmdb_id: document.getElementById('m-tmdb-id').value.trim() || null,
-    year: parseInt(document.getElementById('m-year').value) || null,
+    year: document.getElementById('m-year').value.trim() || null,
     rating: ratingValue || null,
     ...(isMovie ? { runtime: parseInt(document.getElementById('m-runtime').value) || null } : { total_seasons: parseInt(document.getElementById('m-seasons').value) || seasons.length || null, seasons })
   };
@@ -1390,7 +1572,7 @@ async function selectTMDB(tmdbId, mediaType) {
       document.getElementById('m-synopsis').value = m.overview || '';
       document.getElementById('m-poster').value = m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : '';
       document.getElementById('m-tmdb-id').value = tmdbId;
-      document.getElementById('m-year').value = (m.release_date||'').split('-')[0] || '';
+      document.getElementById('m-year').value = m.release_date || '';
       document.getElementById('m-runtime').value = m.runtime || '';
       document.getElementById('m-genres').value = (m.genres||[]).map(g=>g.name).join(', ');
     } else {
@@ -1451,7 +1633,7 @@ async function refreshFromTMDB() {
       s.poster_url = m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : s.poster_url;
       s.genres = (m.genres||[]).map(g=>g.name).length ? (m.genres||[]).map(g=>g.name) : s.genres;
       s.runtime = m.runtime || s.runtime;
-      s.year = (m.release_date||'').split('-')[0] || s.year;
+      s.year = m.release_date || s.year;
     } else {
       const seriesRes = await fetch(`https://api.themoviedb.org/3/tv/${s.tmdb_id}?api_key=${key}`);
       const meta = await seriesRes.json();
