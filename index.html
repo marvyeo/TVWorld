@@ -2461,15 +2461,19 @@ async function selectAnilistAnime(anilistId) {
     if (!chain.length) { showToast('AniList fetch failed', 'error'); return; }
     const root = chain[0];
 
-    // 2. Fetch episode lists for each entry in the chain
-    showToast(`Building ${chain.length} season${chain.length>1?'s':''} from AniList…`);
-    const seasons = [];
-    for (let i = 0; i < chain.length; i++) {
-      const entry = chain[i];
-      const eps = await fetchAnilistEpisodes(entry.id, entry.episodes || 0);
-      seasons.push({ season_number: i + 1, episodes: eps, _anilist_id: entry.id });
-      if (i < chain.length - 1) await new Promise(r => setTimeout(r, 400));
-    }
+    // 2. Build seasons from episode counts — numbered placeholders only
+    // Episode titles come from TMDB refresh (↻ TMDB), which has correct per-season data
+    const seasons = chain.map((entry, i) => {
+      const total = entry.episodes || 0;
+      const episodes = Array.from({ length: total }, (_, j) => ({
+        episode_number: j + 1,
+        title: `Episode ${j + 1}`,
+        synopsis: null,
+        air_date: null,
+        watched: false
+      }));
+      return { season_number: i + 1, episodes, _anilist_id: entry.id };
+    });
 
     // 3. Fill form
     switchTab('manual');
@@ -2486,12 +2490,17 @@ async function selectAnilistAnime(anilistId) {
     const sb = document.getElementById('season-builder');
     sb.innerHTML = ''; seasonBuilderCount = 0;
     seasons.forEach(sea => addSeasonRow(sea));
-    window._pendingSeasons = seasons; // picked up by saveSeries
+    window._pendingSeasons = seasons;
 
-    showToast(`${seasons.length} season${seasons.length>1?'s':''} loaded — searching TMDB for IDs…`);
+    // Show season summary in toast
+    const summary = chain.map((e, i) =>
+      `S${i+1}: ${e.title.english || e.title.romaji} (${e.episodes || '?'} eps)`
+    ).join(' · ');
+    showToast(`${seasons.length} seasons built — searching TMDB…`);
+    console.log('[AniList chain]', summary);
 
-    // 4. Auto-match TMDB in background
-    await autoMatchTMDB(title, root.startDate?.year, root.idMal);
+    // 4. Auto-match TMDB
+    await autoMatchTMDB(title, root.startDate?.year);
 
   } catch(e) {
     showToast('AniList fetch failed', 'error');
@@ -2541,101 +2550,53 @@ async function fetchAnilistChain(rootId) {
   return chain;
 }
 
-async function fetchAnilistEpisodes(anilistId, expectedCount) {
-  // AniList has an airingSchedule for airing shows and episode titles via the episodes field
-  const gql = `
-    query ($id: Int) {
-      Media(id: $id, type: ANIME) {
-        episodes
-        streamingEpisodes { title thumbnail url site }
-        airingSchedule(notYetAired: false) {
-          nodes { episode airingAt }
-        }
-      }
-    }`;
-  try {
-    const json = await anilistGQL(gql, { id: anilistId });
-    const media = json.data?.Media;
-    const total = media?.episodes || expectedCount || 0;
-    const streamEps = media?.streamingEpisodes || [];
-    const airingNodes = media?.airingSchedule?.nodes || [];
-
-    // Build air date map from airingSchedule
-    const airDates = {};
-    airingNodes.forEach(n => {
-      if (n.episode && n.airingAt) {
-        airDates[n.episode] = new Date(n.airingAt * 1000).toISOString().split('T')[0];
-      }
-    });
-
-    // streamingEpisodes often has episode titles (e.g. from Crunchyroll)
-    // They're not always in order or numbered, but we can try to match by index
-    const episodes = Array.from({ length: total || streamEps.length }, (_, i) => {
-      const epNum = i + 1;
-      const streamEp = streamEps[i];
-      // streamingEpisodes titles are often "Episode 1 - Title" — extract the title part
-      let title = `Episode ${epNum}`;
-      if (streamEp?.title) {
-        const match = streamEp.title.match(/^Episode \d+\s*[-–]\s*(.+)$/);
-        title = match ? match[1].trim() : (streamEp.title !== `Episode ${epNum}` ? streamEp.title : title);
-      }
-      return {
-        episode_number: epNum,
-        title,
-        synopsis: null,
-        air_date: airDates[epNum] || null,
-        watched: false
-      };
-    });
-    return episodes;
-  } catch(e) {
-    // Fallback: just numbered episodes
-    return Array.from({ length: expectedCount || 0 }, (_, i) => ({
-      episode_number: i + 1, title: `Episode ${i + 1}`,
-      synopsis: null, air_date: null, watched: false
-    }));
-  }
-}
-
 // ─── Auto TMDB match after AniList select ─────────────────────────────────
 let _tmdbPickerPayload = null;
 
-async function autoMatchTMDB(title, year, malId) {
+async function autoMatchTMDB(title, year) {
   const key = data.settings.tmdb_api_key;
-  if (!key) { showToast('Add TMDB key in Settings to auto-fill TMDB ID', 'error'); return; }
+  if (!key) {
+    showToast('Seasons loaded. Add TMDB key in Settings to auto-fill provider/cast data.');
+    return;
+  }
   try {
     const q = encodeURIComponent(title);
     const yr = year ? `&first_air_date_year=${year}` : '';
-    const res = await fetch(`https://api.themoviedb.org/3/search/tv?api_key=${key}&query=${q}${yr}&region=SG`);
+    const url = `https://api.themoviedb.org/3/search/tv?api_key=${key}&query=${q}${yr}&region=SG`;
+    console.log('[autoMatchTMDB] searching:', title, year);
+    const res = await fetch(url);
     const json = await res.json();
     const results = (json.results || []).slice(0, 5);
-    if (!results.length) { showToast('AniList data loaded. TMDB ID not found — add manually if needed.'); return; }
+    console.log('[autoMatchTMDB] results:', results.map(r => ({ id: r.id, name: r.name, year: r.first_air_date?.split('-')[0] })));
+    if (!results.length) {
+      showToast('Seasons loaded ✓ — no TMDB match found, add ID manually if needed.');
+      return;
+    }
 
-    // Score by title match + year proximity
     const norm = s => s.toLowerCase().replace(/[^a-z0-9]/g, ' ').replace(/\s+/g, ' ').trim();
     const nq = norm(title);
     const scored = results.map(r => {
       const nt = norm(r.name || '');
       const no = norm(r.original_name || '');
-      const titleMatch = nt === nq || no === nq ? 1 : (nt.includes(nq) || nq.includes(nt)) ? 0.8 : 0.3;
+      const titleMatch = (nt === nq || no === nq) ? 1 : (nt.includes(nq) || nq.includes(nt)) ? 0.8 : 0.3;
       const ryear = r.first_air_date?.split('-')[0];
       const yearMatch = year && ryear ? (Math.abs(parseInt(ryear) - parseInt(year)) <= 1 ? 1 : 0.5) : 0.5;
       return { ...r, _score: titleMatch * 0.7 + yearMatch * 0.3 };
     }).sort((a, b) => b._score - a._score);
 
     const best = scored[0];
+    console.log('[autoMatchTMDB] best:', best.name, 'score:', best._score.toFixed(2));
     const clearMatch = best._score >= 0.75 && (!scored[1] || best._score - scored[1]._score > 0.2);
 
     if (clearMatch) {
       document.getElementById('m-tmdb-id').value = String(best.id);
-      showToast('AniList + TMDB IDs loaded ✓', 'success');
+      showToast('Seasons loaded ✓ — AniList + TMDB IDs filled', 'success');
     } else {
-      // Show a small TMDB picker
       _tmdbPickerPayload = scored;
       showTmdbIdPicker(scored.slice(0, 5), title);
     }
   } catch(e) {
-    showToast('AniList loaded. TMDB search failed — add ID manually if needed.');
+    showToast('Seasons loaded ✓ — TMDB search failed, add ID manually if needed.');
     console.error('autoMatchTMDB error:', e);
   }
 }
@@ -2719,21 +2680,16 @@ async function syncEntryFromAnilist(s) {
   s.poster_url = media.coverImage?.extraLarge || media.coverImage?.large || s.poster_url;
   s.genres = media.genres?.length ? media.genres : s.genres;
   s.year = media.startDate?.year?.toString() || s.year;
-  // Update episode titles from AniList streamingEpisodes
+  // Ensure season 1 has the right number of episode slots (titles come from TMDB refresh)
   const totalEps = media.episodes || 0;
   if (totalEps > 0) {
-    const freshEps = await fetchAnilistEpisodes(s.anilist_id, totalEps);
     let sea1 = (s.seasons || []).find(x => x.season_number === 1);
     if (!sea1) { s.seasons = s.seasons || []; sea1 = { season_number: 1, episodes: [] }; s.seasons.push(sea1); }
-    freshEps.forEach(fep => {
-      const existing = sea1.episodes.find(e => e.episode_number === fep.episode_number);
-      if (!existing) {
-        sea1.episodes.push(fep);
-      } else {
-        if (fep.title && fep.title !== `Episode ${fep.episode_number}`) existing.title = fep.title;
-        if (fep.air_date) existing.air_date = fep.air_date;
+    for (let i = 1; i <= totalEps; i++) {
+      if (!sea1.episodes.find(e => e.episode_number === i)) {
+        sea1.episodes.push({ episode_number: i, title: `Episode ${i}`, synopsis: null, air_date: null, watched: false });
       }
-    });
+    }
     sea1.episodes.sort((a, b) => a.episode_number - b.episode_number);
     s.total_seasons = s.seasons.length;
   }
