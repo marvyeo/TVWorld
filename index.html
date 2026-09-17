@@ -242,6 +242,15 @@
   /* ── AniList badge on cards ── */
   .anilist-badge { position:absolute; top:8px; left:8px; background:rgba(2,169,132,0.9); border-radius:4px; font-size:8px; font-weight:700; padding:2px 5px; color:#fff; letter-spacing:0.04em; }
 
+  /* ── MAL picker ── */
+  .mal-pick-item { display:flex; align-items:center; gap:12px; padding:10px 14px; border-bottom:1px solid var(--border); cursor:pointer; transition:background 0.1s; }
+  .mal-pick-item:last-child { border-bottom:none; }
+  .mal-pick-item:hover { background:var(--surface); }
+  .mal-pick-thumb { width:36px; height:50px; object-fit:cover; border-radius:6px; background:var(--border); flex-shrink:0; }
+  .mal-pick-thumb-ph { width:36px; height:50px; border-radius:6px; background:var(--border); flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:14px; color:var(--muted); }
+  .mal-pick-title { font-size:13px; font-weight:600; }
+  .mal-pick-meta { font-size:11px; color:var(--muted); margin-top:2px; }
+
   .sort-bar { display:flex; gap:6px; margin-bottom:16px; flex-wrap:wrap; }
   .sort-btn { padding:5px 12px; border-radius:20px; font-size:11px; font-weight:600; border:1px solid var(--border); background:var(--surface); color:var(--muted); cursor:pointer; transition:all 0.15s; }
   .sort-btn.active { background:rgba(124,106,245,0.15); border-color:var(--accent); color:var(--accent2); }
@@ -616,6 +625,10 @@
         <label class="form-label">AniList ID (optional, anime only)</label>
         <input class="form-input" id="m-anilist-id" placeholder="e.g. 21459">
       </div>
+      <div class="form-group" id="m-mal-group">
+        <label class="form-label">MAL ID (optional, for episode titles/dates)</label>
+        <input class="form-input" id="m-mal-id" placeholder="e.g. 21">
+      </div>
       <div class="form-group">
         <label class="form-label">My Rating</label>
         <div class="rating-stars" id="rating-stars"></div>
@@ -794,6 +807,19 @@
         <button class="btn btn-ghost" onclick="closeModal('anilist-import-modal')">Cancel</button>
         <button class="btn btn-primary" onclick="confirmAnilistImport()" id="anilist-import-confirm-btn">Import New Titles</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- MAL Picker Modal -->
+<div id="mal-picker-modal" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-title">Confirm MAL Match</div>
+    <button class="modal-close" onclick="closeModal('mal-picker-modal')">✕</button>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Multiple results found on MyAnimeList. Pick the right one to get episode titles and air dates.</p>
+    <div id="mal-picker-list" style="max-height:360px;overflow-y:auto;border:1px solid var(--border);border-radius:12px;"></div>
+    <div style="margin-top:12px;">
+      <button class="btn btn-ghost btn-sm" onclick="skipMalPicker()">Skip — use episode numbers only</button>
     </div>
   </div>
 </div>
@@ -1384,6 +1410,7 @@ function openEditModal() {
   document.getElementById('m-poster').value = s.poster_url || '';
   document.getElementById('m-tmdb-id').value = s.tmdb_id || '';
   document.getElementById('m-anilist-id').value = s.anilist_id || '';
+  document.getElementById('m-mal-id').value = s.mal_id || '';
   ratingValue = s.rating || 0;
   renderRatingStars(ratingValue);
 
@@ -1470,6 +1497,18 @@ function saveSeries() {
       const episodes = Array.from({length: epCount}, (_,i) => ({ episode_number: i+1, title: `Episode ${i+1}`, watched: false, air_date: null }));
       if (epCount > 0) seasons.push({ season_number: sNum, episodes });
     });
+    // Apply Jikan episode enrichment if available from the AniList+MAL flow
+    if (window._pendingJikanEps && window._pendingJikanEps.length) {
+      const allEps = seasons.flatMap(sea => sea.episodes);
+      window._pendingJikanEps.forEach(jep => {
+        const ep = allEps.find(e => e.episode_number === jep.mal_id);
+        if (ep) {
+          if (jep.title) ep.title = jep.title;
+          if (jep.aired) ep.air_date = jep.aired.split('T')[0];
+        }
+      });
+      window._pendingJikanEps = null;
+    }
   }
 
   const seriesData = {
@@ -1481,6 +1520,7 @@ function saveSeries() {
     poster_url: document.getElementById('m-poster').value.trim(),
     tmdb_id: document.getElementById('m-tmdb-id').value.trim() || null,
     anilist_id: document.getElementById('m-anilist-id').value.trim() || null,
+    mal_id: document.getElementById('m-mal-id').value.trim() || null,
     rating: ratingValue || null,
     seasons
   };
@@ -2293,7 +2333,7 @@ if (uploadZone) {
 }
 
 // ─── Close modals on overlay click ────────────────────────────────────────
-['add-modal','ingest-modal','person-modal','quick-add-modal','tmdb-import-modal','anilist-import-modal'].forEach(id => {
+['add-modal','ingest-modal','person-modal','quick-add-modal','tmdb-import-modal','anilist-import-modal','mal-picker-modal'].forEach(id => {
   document.getElementById(id).addEventListener('click', function(e) {
     if (e.target === this) closeModal(id);
   });
@@ -2390,11 +2430,14 @@ async function selectAnilist(anilistId) {
   document.getElementById('m-seasons').value = seasons.length || '';
   document.getElementById('m-tmdb-id').value = '';
   document.getElementById('m-anilist-id').value = anilistId;
+  document.getElementById('m-mal-id').value = '';
   document.getElementById('m-genres').value = (mediaData.genres||[]).join(', ');
   const sb = document.getElementById('season-builder');
   sb.innerHTML = ''; seasonBuilderCount = 0;
   seasons.forEach(sea => addSeasonRow(sea));
-  showToast('AniList data loaded — review and save', 'success');
+  showToast('AniList data loaded — searching MAL for episode details…');
+  // Kick off Jikan lookup — result stored in hidden field, updates season builder
+  await lookupJikanAndMergeForm(title, seasons);
 }
 
 async function fetchAnilistMedia(anilistId) {
@@ -2463,7 +2506,6 @@ async function syncEntryFromAnilist(s) {
   s.year = media.startDate?.year?.toString() || s.year;
   const totalEps = media.episodes || 0;
   if (totalEps > 0) {
-    // Merge episodes into season 1, preserving watched state
     let sea1 = (s.seasons||[]).find(x => x.season_number === 1);
     if (!sea1) { s.seasons = s.seasons || []; sea1 = { season_number:1, episodes:[] }; s.seasons.push(sea1); }
     for (let i = 1; i <= totalEps; i++) {
@@ -2472,6 +2514,14 @@ async function syncEntryFromAnilist(s) {
     }
     sea1.episodes.sort((a,b) => a.episode_number - b.episode_number);
     s.total_seasons = s.seasons.length;
+  }
+  // Enrich with Jikan episode data (titles + air dates)
+  if (s.mal_id) {
+    await enrichEpisodesFromJikan(s, s.mal_id);
+  } else {
+    // Try auto-match by title — silent if single clear match, picker if ambiguous
+    const searchTitle = media.title.english || media.title.romaji;
+    if (searchTitle) await jikanAutoMatch(s, searchTitle);
   }
 }
 
@@ -2495,6 +2545,161 @@ async function bulkResyncAnilist() {
   renderGrid();
   statusEl.textContent = `✓ Synced ${done} anime entries`;
   showToast(`Synced ${done} anime entries`, 'success');
+}
+
+// ─── Jikan (MAL) episode enrichment ───────────────────────────────────────
+// State for pending MAL picker (when called from within a sync, not the form flow)
+let _malPickerPendingSeriesId = null;
+let _malPickerPendingFormSeasons = null; // non-null = we're in form flow
+
+async function jikanSearch(title) {
+  try {
+    // Jikan rate limit: max 3 req/sec. Add small delay when called in bulk.
+    const res = await fetch(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(title)}&limit=8&type=tv`);
+    const json = await res.json();
+    return json.data || [];
+  } catch(e) { return []; }
+}
+
+async function jikanFetchEpisodes(malId) {
+  const results = [];
+  let page = 1, hasNext = true;
+  while (hasNext && page <= 20) { // cap at 500 episodes per page × 20 pages
+    try {
+      const res = await fetch(`https://api.jikan.moe/v4/anime/${malId}/episodes?page=${page}`);
+      const json = await res.json();
+      results.push(...(json.data||[]));
+      hasNext = json.pagination?.has_next_page || false;
+      page++;
+      if (hasNext) await new Promise(r => setTimeout(r, 400)); // pace requests
+    } catch(e) { hasNext = false; }
+  }
+  return results;
+}
+
+function titleSimilarity(a, b) {
+  // Simple normalised title match — strips punctuation, lowercases
+  const norm = s => s.toLowerCase().replace(/[^a-z0-9 ]/g,'').replace(/\s+/g,' ').trim();
+  const na = norm(a), nb = norm(b);
+  if (na === nb) return 1;
+  if (na.includes(nb) || nb.includes(na)) return 0.9;
+  // Count shared words
+  const wa = new Set(na.split(' ')), wb = nb.split(' ');
+  const shared = wb.filter(w => wa.has(w)).length;
+  return shared / Math.max(wa.size, wb.length);
+}
+
+async function jikanAutoMatch(s, searchTitle) {
+  // Called during sync — shows picker modal if needed, otherwise auto-applies
+  const results = await jikanSearch(searchTitle);
+  if (!results.length) return;
+  // Score each result
+  const scored = results.map(r => ({
+    ...r,
+    _score: titleSimilarity(searchTitle, r.title) * 0.6 +
+            titleSimilarity(searchTitle, r.title_english||'') * 0.4
+  })).sort((a,b) => b._score - a._score);
+  const best = scored[0];
+  // Auto-pick if clearly dominant (score ≥ 0.85 and next is much lower)
+  const clearMatch = best._score >= 0.85 && (!scored[1] || best._score - scored[1]._score > 0.2);
+  if (clearMatch) {
+    s.mal_id = String(best.mal_id);
+    await enrichEpisodesFromJikan(s, best.mal_id);
+  } else {
+    // Show picker — store pending series id
+    _malPickerPendingSeriesId = s.id;
+    _malPickerPendingFormSeasons = null;
+    showMalPicker(scored.slice(0, 8));
+  }
+}
+
+async function lookupJikanAndMergeForm(searchTitle, formSeasons) {
+  // Form flow — after AniList select, tries to enrich the season-builder rows
+  const results = await jikanSearch(searchTitle);
+  if (!results.length) { showToast('AniList data loaded. MAL not found — episode numbers only.'); return; }
+  const scored = results.map(r => ({
+    ...r,
+    _score: titleSimilarity(searchTitle, r.title) * 0.6 +
+            titleSimilarity(searchTitle, r.title_english||'') * 0.4
+  })).sort((a,b) => b._score - a._score);
+  const best = scored[0];
+  const clearMatch = best._score >= 0.85 && (!scored[1] || best._score - scored[1]._score > 0.2);
+  if (clearMatch) {
+    document.getElementById('m-mal-id').value = String(best.mal_id);
+    const jikanEps = await jikanFetchEpisodes(best.mal_id);
+    mergeJikanIntoFormSeasons(jikanEps);
+    showToast('Episode titles and dates loaded from MAL ✓', 'success');
+  } else {
+    _malPickerPendingSeriesId = null;
+    _malPickerPendingFormSeasons = formSeasons;
+    showMalPicker(scored.slice(0, 8));
+  }
+}
+
+function showMalPicker(results) {
+  document.getElementById('mal-picker-list').innerHTML = results.map(r => `
+    <div class="mal-pick-item" onclick="confirmMalPick(${r.mal_id}, '${(r.title||'').replace(/'/g,"\\'")}')">
+      ${r.images?.jpg?.image_url
+        ? `<img class="mal-pick-thumb" src="${r.images.jpg.image_url}" loading="lazy">`
+        : `<div class="mal-pick-thumb-ph">⛩</div>`}
+      <div>
+        <div class="mal-pick-title">${r.title}${r.title_english && r.title_english !== r.title ? `<span style="color:var(--muted);font-weight:400;"> · ${r.title_english}</span>` : ''}</div>
+        <div class="mal-pick-meta">${r.aired?.prop?.from?.year||'?'} · ${r.episodes||'?'} eps · Score ${r.score||'?'}</div>
+      </div>
+    </div>`).join('');
+  document.getElementById('mal-picker-modal').classList.remove('hidden');
+}
+
+async function confirmMalPick(malId, title) {
+  closeModal('mal-picker-modal');
+  showToast(`Fetching episodes from MAL…`);
+  if (_malPickerPendingFormSeasons !== null) {
+    // Form flow
+    document.getElementById('m-mal-id').value = String(malId);
+    const jikanEps = await jikanFetchEpisodes(malId);
+    mergeJikanIntoFormSeasons(jikanEps);
+    showToast('Episode titles and dates loaded from MAL ✓', 'success');
+    _malPickerPendingFormSeasons = null;
+  } else if (_malPickerPendingSeriesId) {
+    // Sync flow
+    const s = data.series.find(x => x.id === _malPickerPendingSeriesId);
+    if (s) {
+      s.mal_id = String(malId);
+      await enrichEpisodesFromJikan(s, malId);
+      saveToDrive();
+      if (currentSeriesId === s.id) openDetail(s.id);
+      showToast('Episodes enriched from MAL ✓', 'success');
+    }
+    _malPickerPendingSeriesId = null;
+  }
+}
+
+function skipMalPicker() {
+  closeModal('mal-picker-modal');
+  _malPickerPendingSeriesId = null;
+  _malPickerPendingFormSeasons = null;
+  showToast('Skipped MAL — using episode numbers only');
+}
+
+async function enrichEpisodesFromJikan(s, malId) {
+  const jikanEps = await jikanFetchEpisodes(malId);
+  if (!jikanEps.length) return;
+  // Merge into all seasons (Jikan episodes are flat, sequential)
+  // Most AniList-sourced anime have one season per entry, so ep numbers match directly
+  const allEps = (s.seasons||[]).flatMap(sea => sea.episodes);
+  jikanEps.forEach(jep => {
+    const ep = allEps.find(e => e.episode_number === jep.mal_id); // Jikan ep.mal_id = episode number
+    if (ep) {
+      if (jep.title && jep.title !== `Episode ${ep.episode_number}`) ep.title = jep.title;
+      if (jep.aired) ep.air_date = jep.aired.split('T')[0];
+    }
+  });
+}
+
+function mergeJikanIntoFormSeasons(jikanEps) {
+  // Update the in-DOM season-builder episode rows (we can't easily; just store for saveSeries)
+  // Instead, store the enriched episode data in a temp variable picked up by saveSeries
+  window._pendingJikanEps = jikanEps;
 }
 
 // ─── AniList Account Import ────────────────────────────────────────────────
