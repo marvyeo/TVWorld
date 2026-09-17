@@ -570,7 +570,7 @@
         <label class="form-label">Search via</label>
         <div style="display:flex;gap:6px;margin-bottom:12px;">
           <div class="type-pill active-tv" id="search-src-tmdb" onclick="setSearchSource('tmdb')" style="cursor:pointer;">TMDB (TV / Movies)</div>
-          <div class="type-pill" id="search-src-anilist" onclick="setSearchSource('anilist')" style="cursor:pointer;">AniList (Anime)</div>
+          <div class="type-pill" id="search-src-anilist" onclick="setSearchSource('jikan')" style="cursor:pointer;">MAL / Jikan (Anime)</div>
         </div>
         <div style="display:flex;gap:8px;">
           <input class="form-input" id="tmdb-search-input" placeholder="Title…" onkeydown="if(event.key==='Enter')searchCombined()">
@@ -2379,214 +2379,131 @@ function toggleType(type, el) {
 }
 
 // ─── Search source toggle (TMDB vs AniList) ────────────────────────────────
+// ─── Search source toggle ──────────────────────────────────────────────────
 function setSearchSource(src) {
   searchSource = src;
   document.getElementById('search-src-tmdb').classList.toggle('active-tv', src === 'tmdb');
-  document.getElementById('search-src-anilist').classList.toggle('active-anime', src === 'anilist');
-  document.getElementById('tmdb-search-input').placeholder = src === 'anilist' ? 'Anime title…' : 'Title…';
+  document.getElementById('search-src-anilist').classList.toggle('active-anime', src === 'jikan');
+  document.getElementById('tmdb-search-input').placeholder = src === 'jikan' ? 'Anime title…' : 'Title…';
 }
 
 function searchCombined() {
-  if (searchSource === 'anilist') {
-    searchAnilist();
+  if (searchSource === 'jikan') {
+    searchJikan();
   } else {
     searchTMDB();
   }
 }
 
-// ─── AniList search ────────────────────────────────────────────────────────
-async function searchAnilist() {
+// ─── Jikan search (primary anime source) ──────────────────────────────────
+async function searchJikan() {
   const q = document.getElementById('tmdb-search-input').value.trim();
   if (!q) return;
-  showToast('Searching AniList…');
-  const query = `
-    query ($search: String) {
-      Page(perPage: 10) {
-        media(search: $search, type: ANIME, sort: SEARCH_MATCH) {
-          id title { romaji english } coverImage { large } startDate { year }
-          averageScore episodes seasonCount: relations { edges { node { type } } }
-          genres description(asHtml: false)
-        }
-      }
-    }`;
+  const container = document.getElementById('tmdb-results');
+  container.innerHTML = '<div style="padding:12px;color:var(--muted);font-size:13px;">Searching MAL…</div>';
+  container.classList.remove('hidden');
   try {
-    const res = await fetch('https://graphql.anilist.co', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify({ query, variables: { search: q } })
-    });
+    const res = await fetch(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(q)}&limit=10&sfw=false`);
+    if (!res.ok) throw new Error(`Jikan ${res.status}`);
     const json = await res.json();
-    const results = json.data?.Page?.media || [];
-    const container = document.getElementById('tmdb-results');
+    const results = json.data || [];
     if (!results.length) {
-      container.innerHTML = '<div style="padding:12px;color:var(--muted);font-size:13px;">No results found on AniList</div>';
-      container.classList.remove('hidden'); return;
+      container.innerHTML = '<div style="padding:12px;color:var(--muted);font-size:13px;">No results found</div>';
+      return;
     }
-    container.classList.remove('hidden');
     container.className = 'tmdb-results';
     container.innerHTML = results.map(r => {
-      const title = r.title.english || r.title.romaji || 'Untitled';
-      const year = r.startDate?.year || '?';
-      return `<div class="tmdb-result-item" onclick="selectAnilist(${r.id})">
-        ${r.coverImage?.large ? `<img class="tmdb-result-thumb" src="${r.coverImage.large}">` : `<div class="tmdb-result-thumb" style="display:flex;align-items:center;justify-content:center;color:var(--muted)">⛩</div>`}
+      const title = r.title_english || r.title || 'Untitled';
+      const year = r.aired?.prop?.from?.year || '?';
+      const eps = r.episodes ? `${r.episodes} eps` : 'ongoing';
+      return `<div class="tmdb-result-item" onclick="selectJikan(${r.mal_id})">
+        ${r.images?.jpg?.image_url
+          ? `<img class="tmdb-result-thumb" src="${r.images.jpg.image_url}">`
+          : `<div class="tmdb-result-thumb" style="display:flex;align-items:center;justify-content:center;color:var(--muted)">⛩</div>`}
         <div>
-          <div class="tmdb-result-title">${title} <span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;background:rgba(2,169,132,0.2);color:#02a984;">AniList</span></div>
-          <div class="tmdb-result-meta">${year} · ${r.averageScore ? r.averageScore/10+'★' : '?'}</div>
+          <div class="tmdb-result-title">${title}
+            <span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;background:rgba(2,169,132,0.2);color:#02a984;margin-left:4px;">MAL</span>
+          </div>
+          <div class="tmdb-result-meta">${r.title !== title ? r.title + ' · ' : ''}${year} · ${eps} · ${r.score ? r.score + '★' : '?'}</div>
         </div>
       </div>`;
     }).join('');
   } catch(e) {
-    showToast('AniList search failed', 'error');
-    console.error(e);
+    container.innerHTML = `<div style="padding:12px;color:var(--dropped);font-size:13px;">Jikan unavailable (${e.message}) — try again in a moment</div>`;
+    console.error('Jikan search error:', e);
   }
 }
 
-async function selectAnilist(anilistId) {
-  showToast('Fetching from AniList…');
-  const mediaData = await fetchAnilistMedia(anilistId);
-  if (!mediaData) { showToast('AniList fetch failed', 'error'); return; }
-  const seasons = buildSeasonsFromAnilist(mediaData);
-  switchTab('manual');
-  setManualType('anime');
-  const title = mediaData.title.english || mediaData.title.romaji || 'Untitled';
-  document.getElementById('m-title').value = title;
-  document.getElementById('m-synopsis').value = mediaData.description?.replace(/<[^>]*>/g,'') || '';
-  document.getElementById('m-poster').value = mediaData.coverImage?.extraLarge || mediaData.coverImage?.large || '';
-  document.getElementById('m-seasons').value = seasons.length || '';
-  document.getElementById('m-tmdb-id').value = '';
-  document.getElementById('m-anilist-id').value = anilistId;
-  document.getElementById('m-mal-id').value = '';
-  document.getElementById('m-genres').value = (mediaData.genres||[]).join(', ');
-  const sb = document.getElementById('season-builder');
-  sb.innerHTML = ''; seasonBuilderCount = 0;
-  seasons.forEach(sea => addSeasonRow(sea));
-  showToast('AniList data loaded — searching MAL for episode details…');
-  // Kick off Jikan lookup — result stored in hidden field, updates season builder
-  await lookupJikanAndMergeForm(title, seasons);
-}
-
-async function fetchAnilistMedia(anilistId) {
-  const query = `
-    query ($id: Int) {
-      Media(id: $id, type: ANIME) {
-        id title { romaji english } description(asHtml: false)
-        coverImage { large extraLarge } startDate { year }
-        episodes genres averageScore status
-        relations {
-          edges {
-            relationType
-            node { id type title { romaji english } episodes startDate { year } coverImage { large } status }
-          }
-        }
-      }
-    }`;
+async function selectJikan(malId) {
+  showToast('Fetching from MAL…');
   try {
-    const res = await fetch('https://graphql.anilist.co', {
-      method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json'},
-      body: JSON.stringify({ query, variables: { id: anilistId } })
-    });
-    const json = await res.json();
-    return json.data?.Media || null;
-  } catch(e) { return null; }
-}
+    // Fetch full anime details and episodes in parallel
+    const [detailRes, epsRes] = await Promise.all([
+      fetch(`https://api.jikan.moe/v4/anime/${malId}/full`),
+      fetch(`https://api.jikan.moe/v4/anime/${malId}/episodes?page=1`)
+    ]);
+    const detail = await detailRes.json();
+    const epsJson = await epsRes.json();
+    const anime = detail.data;
+    if (!anime) { showToast('MAL fetch failed', 'error'); return; }
 
-function buildSeasonsFromAnilist(media) {
-  // AniList treats each season/cour as a separate Media entry via SEQUEL relations
-  // We build a flat season list from the main entry's episode count
-  const episodes = media.episodes || 0;
-  if (!episodes) return [];
-  const eps = Array.from({length: episodes}, (_,i) => ({
-    episode_number: i+1, title: `Episode ${i+1}`, synopsis: null, air_date: null, watched: false
-  }));
-  return [{ season_number: 1, episodes: eps }];
-}
-
-// ─── AniList Refresh (single entry) ───────────────────────────────────────
-async function refreshFromAnilist() {
-  const s = data.series.find(x => x.id === currentSeriesId);
-  if (!s || !s.anilist_id) { showToast('No AniList ID on this entry', 'error'); return; }
-  const btn = document.getElementById('refresh-anilist-btn');
-  btn.textContent = '↻ Syncing…'; btn.disabled = true;
-  showToast('Refreshing from AniList…');
-  try {
-    await syncEntryFromAnilist(s);
-    saveToDrive();
-    openDetail(s.id);
-    showToast('Refreshed from AniList', 'success');
-  } catch(e) {
-    showToast('AniList refresh failed', 'error');
-    console.error(e);
-  } finally {
-    btn.textContent = '↻ AniList'; btn.disabled = false;
-  }
-}
-
-async function syncEntryFromAnilist(s) {
-  const media = await fetchAnilistMedia(s.anilist_id);
-  if (!media) return;
-  s.title = media.title.english || media.title.romaji || s.title;
-  s.synopsis = media.description?.replace(/<[^>]*>/g,'') || s.synopsis;
-  s.poster_url = media.coverImage?.extraLarge || media.coverImage?.large || s.poster_url;
-  s.genres = media.genres?.length ? media.genres : s.genres;
-  s.year = media.startDate?.year?.toString() || s.year;
-  const totalEps = media.episodes || 0;
-  if (totalEps > 0) {
-    let sea1 = (s.seasons||[]).find(x => x.season_number === 1);
-    if (!sea1) { s.seasons = s.seasons || []; sea1 = { season_number:1, episodes:[] }; s.seasons.push(sea1); }
-    for (let i = 1; i <= totalEps; i++) {
-      const existing = sea1.episodes.find(e => e.episode_number === i);
-      if (!existing) sea1.episodes.push({ episode_number:i, title:`Episode ${i}`, synopsis:null, air_date:null, watched:false });
+    // Fetch remaining episode pages if any
+    let allEpData = [...(epsJson.data || [])];
+    const totalPages = epsJson.pagination?.last_visible_page || 1;
+    for (let p = 2; p <= totalPages; p++) {
+      await new Promise(r => setTimeout(r, 400));
+      const r = await fetch(`https://api.jikan.moe/v4/anime/${malId}/episodes?page=${p}`);
+      const j = await r.json();
+      allEpData.push(...(j.data || []));
     }
-    sea1.episodes.sort((a,b) => a.episode_number - b.episode_number);
-    s.total_seasons = s.seasons.length;
-  }
-  // Enrich with Jikan episode data (titles + air dates)
-  if (s.mal_id) {
-    await enrichEpisodesFromJikan(s, s.mal_id);
-  } else {
-    // Try auto-match by title — silent if single clear match, picker if ambiguous
-    const searchTitle = media.title.english || media.title.romaji;
-    if (searchTitle) await jikanAutoMatch(s, searchTitle);
+
+    // Build episodes from Jikan data (sequential index = episode number)
+    const totalEps = anime.episodes || allEpData.length || 0;
+    const episodes = Array.from({ length: totalEps }, (_, i) => {
+      const jep = allEpData[i];
+      return {
+        episode_number: i + 1,
+        title: (jep?.title_romanji || jep?.title || `Episode ${i + 1}`),
+        synopsis: null,
+        air_date: jep?.aired ? jep.aired.split('T')[0] : null,
+        watched: false
+      };
+    });
+
+    // Genres from Jikan
+    const genres = [
+      ...(anime.genres || []),
+      ...(anime.themes || []),
+      ...(anime.demographics || [])
+    ].map(g => g.name);
+
+    switchTab('manual');
+    setManualType('anime');
+    document.getElementById('m-title').value = anime.title_english || anime.title || '';
+    document.getElementById('m-synopsis').value = anime.synopsis || '';
+    document.getElementById('m-poster').value = anime.images?.jpg?.large_image_url || anime.images?.jpg?.image_url || '';
+    document.getElementById('m-seasons').value = '1';
+    document.getElementById('m-tmdb-id').value = '';
+    document.getElementById('m-anilist-id').value = '';
+    document.getElementById('m-mal-id').value = String(malId);
+    document.getElementById('m-genres').value = [...new Set(genres)].join(', ');
+
+    // Populate season builder with 1 season showing episode count
+    const sb = document.getElementById('season-builder');
+    sb.innerHTML = ''; seasonBuilderCount = 0;
+    addSeasonRow({ season_number: 1, episodes });
+
+    // Store episode data for saveSeries to pick up
+    window._pendingJikanEps = allEpData;
+
+    showToast(`Loaded ${totalEps} episodes from MAL ✓`, 'success');
+  } catch(e) {
+    showToast('MAL fetch failed — try again', 'error');
+    console.error('selectJikan error:', e);
   }
 }
 
-// ─── Bulk AniList Resync ───────────────────────────────────────────────────
-async function bulkResyncAnilist() {
-  const animeWithId = data.series.filter(s => s.type === 'anime' && s.anilist_id);
-  if (!animeWithId.length) {
-    showToast('No anime have an AniList ID yet. Add via the AniList search.', 'error');
-    return;
-  }
-  const statusEl = document.getElementById('anilist-sync-status');
-  statusEl.textContent = `Syncing 0/${animeWithId.length}…`;
-  let done = 0;
-  for (const s of animeWithId) {
-    await syncEntryFromAnilist(s);
-    done++;
-    statusEl.textContent = `Syncing ${done}/${animeWithId.length}…`;
-    await new Promise(r => setTimeout(r, 600)); // AniList rate limit: ~90 req/min
-  }
-  saveToDrive();
-  renderGrid();
-  statusEl.textContent = `✓ Synced ${done} anime entries`;
-  showToast(`Synced ${done} anime entries`, 'success');
-}
-
-// ─── Jikan (MAL) episode enrichment ───────────────────────────────────────
-let _malPickerPendingSeriesId = null;
-let _malPickerPendingFormSeasons = null;
-let _malPickerQueue = []; // queue for bulk sync
-let _malPickerResolve = null; // promise resolver for async picker
-
-async function jikanSearch(title) {
-  try {
-    await new Promise(r => setTimeout(r, 350)); // stay under Jikan rate limit
-    const res = await fetch(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(title)}&limit=10&type=tv`);
-    const json = await res.json();
-    return json.data || [];
-  } catch(e) { console.error('Jikan search error:', e); return []; }
-}
-
+// ─── Jikan episode enrichment (for resync of existing entries) ─────────────
 async function jikanFetchEpisodes(malId) {
   const results = [];
   let page = 1, hasNext = true;
@@ -2594,6 +2511,7 @@ async function jikanFetchEpisodes(malId) {
     try {
       await new Promise(r => setTimeout(r, 400));
       const res = await fetch(`https://api.jikan.moe/v4/anime/${malId}/episodes?page=${page}`);
+      if (!res.ok) { hasNext = false; break; }
       const json = await res.json();
       results.push(...(json.data||[]));
       hasNext = json.pagination?.has_next_page || false;
@@ -2603,160 +2521,107 @@ async function jikanFetchEpisodes(malId) {
   return results;
 }
 
-function titleSimilarity(query, candidate) {
-  if (!candidate) return 0;
-  const norm = s => s.toLowerCase()
-    .replace(/re:zero/gi, 'rezero')        // handle Re:ZERO specifically
-    .replace(/[^a-z0-9 ]/g, ' ')
-    .replace(/\s+/g, ' ').trim();
-  const nq = norm(query), nc = norm(candidate);
-  if (nq === nc) return 1;
-  if (nq.includes(nc) || nc.includes(nq)) return 0.85;
-  // Jaccard on words
-  const wq = new Set(nq.split(' ').filter(Boolean));
-  const wc = nc.split(' ').filter(Boolean);
-  const shared = wc.filter(w => wq.has(w)).length;
-  return shared / Math.max(wq.size, wc.length, 1);
-}
-
-function scoreJikanResults(searchTitle, results) {
-  return results.map(r => {
-    const s1 = titleSimilarity(searchTitle, r.title || '');
-    const s2 = titleSimilarity(searchTitle, r.title_english || '');
-    const s3 = titleSimilarity(searchTitle, r.title_synonyms?.join(' ') || '');
-    return { ...r, _score: Math.max(s1, s2, s3), _scores: { romaji: s1, english: s2, synonyms: s3 } };
-  }).sort((a, b) => b._score - a._score);
-}
-
-// Form flow: called after AniList select
-async function lookupJikanAndMergeForm(searchTitle, formSeasons) {
-  const results = await jikanSearch(searchTitle);
-  console.log('[Jikan search]', searchTitle, '→', results.map(r => ({ title: r.title, english: r.title_english, mal_id: r.mal_id, score: '(pending)' })));
-  if (!results.length) {
-    showToast('MAL not found — episode numbers only');
-    return;
-  }
-  const scored = scoreJikanResults(searchTitle, results);
-  console.log('[Jikan scored]', scored.map(r => ({ title: r.title, english: r.title_english, mal_id: r.mal_id, _score: r._score.toFixed(3) })));
-  const best = scored[0];
-  const clearMatch = best._score >= 0.75 && (!scored[1] || best._score - scored[1]._score > 0.15);
-  if (clearMatch) {
-    console.log('[Jikan auto-pick]', best.title, 'mal_id:', best.mal_id, 'score:', best._score.toFixed(3));
-    document.getElementById('m-mal-id').value = String(best.mal_id);
-    const jikanEps = await jikanFetchEpisodes(best.mal_id);
-    window._pendingJikanEps = jikanEps;
-    showToast(`Episode data loaded from MAL: ${jikanEps.length} episodes ✓`, 'success');
-  } else {
-    _malPickerPendingSeriesId = null;
-    _malPickerPendingFormSeasons = formSeasons;
-    showMalPicker(scored.slice(0, 8), searchTitle);
-  }
-}
-
-// Sync flow: called during entry sync
-async function jikanAutoMatch(s, searchTitle) {
-  if (s.mal_id) {
-    // Already have it — just enrich
-    await enrichEpisodesFromJikan(s, s.mal_id);
-    return;
-  }
-  const results = await jikanSearch(searchTitle);
-  if (!results.length) return;
-  const scored = scoreJikanResults(searchTitle, results);
-  console.log('[Jikan sync scored for', searchTitle, ']', scored.map(r => ({ title: r.title, english: r.title_english, mal_id: r.mal_id, score: r._score.toFixed(3) })));
-  const best = scored[0];
-  const clearMatch = best._score >= 0.75 && (!scored[1] || best._score - scored[1]._score > 0.15);
-  if (clearMatch) {
-    s.mal_id = String(best.mal_id);
-    await enrichEpisodesFromJikan(s, best.mal_id);
-  } else {
-    // Queue picker — returns a promise that resolves when user picks
-    await showMalPickerAsync(s, scored.slice(0, 8), searchTitle);
-  }
-}
-
-// Synchronous picker for form flow
-function showMalPicker(results, searchTitle) {
-  _renderMalPickerList(results, searchTitle);
-  document.getElementById('mal-picker-modal').classList.remove('hidden');
-}
-
-// Async picker for sync flow — pauses the sync loop until user picks
-function showMalPickerAsync(s, results, searchTitle) {
-  return new Promise(resolve => {
-    _malPickerPendingSeriesId = s.id;
-    _malPickerPendingFormSeasons = null;
-    _malPickerResolve = resolve;
-    _renderMalPickerList(results, searchTitle);
-    document.getElementById('mal-picker-modal').classList.remove('hidden');
-  });
-}
-
-function _renderMalPickerList(results, searchTitle) {
-  document.getElementById('mal-picker-list').innerHTML = `
-    <div style="padding:10px 14px;background:var(--surface);border-bottom:1px solid var(--border);font-size:11px;color:var(--muted);">
-      Searching for: <strong style="color:var(--text);">${searchTitle}</strong> — scores below show title match confidence
-    </div>
-    ${results.map(r => `
-    <div class="mal-pick-item" onclick="confirmMalPick(${r.mal_id})">
-      ${r.images?.jpg?.image_url
-        ? `<img class="mal-pick-thumb" src="${r.images.jpg.image_url}" loading="lazy">`
-        : `<div class="mal-pick-thumb-ph">⛩</div>`}
-      <div style="flex:1;min-width:0;">
-        <div class="mal-pick-title">${r.title}${r.title_english && r.title_english !== r.title ? `<span style="color:var(--muted);font-weight:400;font-size:11px;"> · ${r.title_english}</span>` : ''}</div>
-        <div class="mal-pick-meta">${r.aired?.prop?.from?.year||'?'} · ${r.episodes||'?'} eps · Score ${r.score||'?'} · Match ${(r._score*100).toFixed(0)}%</div>
-      </div>
-    </div>`).join('')}`;
-}
-
-async function confirmMalPick(malId) {
-  closeModal('mal-picker-modal');
-  showToast('Fetching episodes from MAL…');
-  if (_malPickerPendingFormSeasons !== null) {
-    // Form flow
-    document.getElementById('m-mal-id').value = String(malId);
-    const jikanEps = await jikanFetchEpisodes(malId);
-    window._pendingJikanEps = jikanEps;
-    showToast(`${jikanEps.length} episodes loaded from MAL ✓`, 'success');
-    _malPickerPendingFormSeasons = null;
-  } else if (_malPickerPendingSeriesId) {
-    // Sync flow
-    const s = data.series.find(x => x.id === _malPickerPendingSeriesId);
-    if (s) {
-      s.mal_id = String(malId);
-      await enrichEpisodesFromJikan(s, malId);
-      saveToDrive();
-      if (currentSeriesId === s.id) openDetail(s.id);
-      showToast('Episodes enriched from MAL ✓', 'success');
-    }
-    _malPickerPendingSeriesId = null;
-    if (_malPickerResolve) { _malPickerResolve(); _malPickerResolve = null; }
-  }
-}
-
-function skipMalPicker() {
-  closeModal('mal-picker-modal');
-  _malPickerPendingSeriesId = null;
-  _malPickerPendingFormSeasons = null;
-  if (_malPickerResolve) { _malPickerResolve(); _malPickerResolve = null; }
-  showToast('Skipped MAL — using episode numbers only');
-}
-
 async function enrichEpisodesFromJikan(s, malId) {
   const jikanEps = await jikanFetchEpisodes(malId);
   if (!jikanEps.length) return;
-  console.log('[Jikan episodes]', malId, '→', jikanEps.length, 'episodes, first:', jikanEps[0]);
-  // jikanEps are ordered sequentially — use array index+1 as episode number
-  // jep.mal_id is the MAL episode ID (not useful), the position is what matters
   const allEps = (s.seasons||[]).flatMap(sea => sea.episodes);
   jikanEps.forEach((jep, idx) => {
-    const epNum = idx + 1; // sequential position = episode number
-    const ep = allEps.find(e => e.episode_number === epNum);
+    const ep = allEps.find(e => e.episode_number === idx + 1);
     if (ep) {
-      if (jep.title && !jep.title.match(/^Episode \d+$/i)) ep.title = jep.title;
+      const t = jep.title_romanji || jep.title;
+      if (t && !t.match(/^Episode \d+$/i)) ep.title = t;
       if (jep.aired) ep.air_date = jep.aired.split('T')[0];
     }
   });
+}
+
+// ─── AniList (kept for account import + resync of existing anilist_id entries) ─
+async function fetchAnilistMedia(anilistId) {
+  const query = `
+    query ($id: Int) {
+      Media(id: $id, type: ANIME) {
+        id title { romaji english } description(asHtml: false)
+        coverImage { large extraLarge } startDate { year }
+        episodes genres averageScore status
+      }
+    }`;
+  try {
+    const res = await fetch('https://graphql.anilist.co', {
+      method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json'},
+      body: JSON.stringify({ query, variables: { id: parseInt(anilistId) } })
+    });
+    const json = await res.json();
+    return json.data?.Media || null;
+  } catch(e) { return null; }
+}
+
+// ─── AniList Refresh (single entry — uses mal_id for episodes if available) ─
+async function refreshFromAnilist() {
+  const s = data.series.find(x => x.id === currentSeriesId);
+  if (!s) return;
+  const btn = document.getElementById('refresh-anilist-btn');
+  btn.textContent = '↻ Syncing…'; btn.disabled = true;
+  showToast('Refreshing…');
+  try {
+    await syncEntryFromAnilist(s);
+    saveToDrive();
+    openDetail(s.id);
+    showToast('Refreshed ✓', 'success');
+  } catch(e) {
+    showToast('Refresh failed', 'error');
+    console.error(e);
+  } finally {
+    btn.textContent = '↻ AniList'; btn.disabled = false;
+  }
+}
+
+async function syncEntryFromAnilist(s) {
+  // Metadata from AniList (if anilist_id available)
+  if (s.anilist_id) {
+    const media = await fetchAnilistMedia(s.anilist_id);
+    if (media) {
+      s.title = media.title.english || media.title.romaji || s.title;
+      s.synopsis = media.description?.replace(/<[^>]*>/g,'') || s.synopsis;
+      s.poster_url = media.coverImage?.extraLarge || media.coverImage?.large || s.poster_url;
+      s.genres = media.genres?.length ? media.genres : s.genres;
+      s.year = media.startDate?.year?.toString() || s.year;
+      const totalEps = media.episodes || 0;
+      if (totalEps > 0) {
+        let sea1 = (s.seasons||[]).find(x => x.season_number === 1);
+        if (!sea1) { s.seasons = s.seasons || []; sea1 = { season_number:1, episodes:[] }; s.seasons.push(sea1); }
+        for (let i = 1; i <= totalEps; i++) {
+          if (!sea1.episodes.find(e => e.episode_number === i))
+            sea1.episodes.push({ episode_number:i, title:`Episode ${i}`, synopsis:null, air_date:null, watched:false });
+        }
+        sea1.episodes.sort((a,b) => a.episode_number - b.episode_number);
+        s.total_seasons = s.seasons.length;
+      }
+    }
+  }
+  // Episode titles + dates from Jikan (if mal_id available)
+  if (s.mal_id) {
+    await enrichEpisodesFromJikan(s, s.mal_id);
+  }
+}
+
+// ─── Bulk Resync ───────────────────────────────────────────────────────────
+async function bulkResyncAnilist() {
+  const anime = data.series.filter(s => s.type === 'anime' && (s.anilist_id || s.mal_id));
+  if (!anime.length) {
+    showToast('No anime with AniList or MAL IDs yet', 'error'); return;
+  }
+  const statusEl = document.getElementById('anilist-sync-status');
+  statusEl.textContent = `Syncing 0/${anime.length}…`;
+  let done = 0;
+  for (const s of anime) {
+    await syncEntryFromAnilist(s);
+    done++;
+    statusEl.textContent = `Syncing ${done}/${anime.length}…`;
+    await new Promise(r => setTimeout(r, 700));
+  }
+  saveToDrive(); renderGrid();
+  statusEl.textContent = `✓ Synced ${done} entries`;
+  showToast(`Synced ${done} anime`, 'success');
 }
 
 // ─── AniList Account Import ────────────────────────────────────────────────
