@@ -697,6 +697,7 @@
     <div class="film-tabs">
       <div class="film-tab active" id="ftab-movies" onclick="switchFilmTab('movies')">Movies</div>
       <div class="film-tab" id="ftab-tv" onclick="switchFilmTab('tv')">TV Shows</div>
+      <div class="film-tab" id="ftab-anime" onclick="switchFilmTab('anime')">Anime</div>
     </div>
     <div class="filmography-grid" id="filmography-grid"></div>
   </div>
@@ -1402,15 +1403,15 @@ function setManualType(type) {
   if (seasonsRow) seasonsRow.style.display = type === 'movie' ? 'none' : '';
 }
 
-function openAddModal(tab) {
+function openAddModal(source) {
   editingSeriesId = null;
   document.getElementById('add-modal-title').textContent = 'Add to Library';
   document.getElementById('save-series-btn').textContent = 'Add to Library';
   resetManualForm();
-  setManualType('tv'); // default
-  switchTab(tab || 'tmdb');
-  // Reset search source to TMDB
-  setSearchSource('tmdb');
+  setManualType('tv');
+  switchTab('tmdb');
+  // Set search source based on what was requested
+  setSearchSource(source === 'anilist' ? 'anilist' : 'tmdb');
   document.getElementById('add-modal').classList.remove('hidden');
 }
 
@@ -1594,7 +1595,7 @@ async function searchTMDB() {
   container.classList.remove('hidden');
   container.className = 'tmdb-results';
   container.innerHTML = results.slice(0, 8).map(r => `
-    <div class="tmdb-result-item" onclick="selectTMDB(${r.id})">
+    <div class="tmdb-result-item" onclick="selectTMDB(${r.id}, 'tv')">
       ${r.poster_path ? `<img class="tmdb-result-thumb" src="https://image.tmdb.org/t/p/w92${r.poster_path}">` : `<div class="tmdb-result-thumb" style="display:flex;align-items:center;justify-content:center;color:var(--muted)">📺</div>`}
       <div>
         <div class="tmdb-result-title">${r.name}</div>
@@ -1603,25 +1604,34 @@ async function searchTMDB() {
     </div>`).join('');
 }
 
-async function selectTMDB(tmdbId) {
+async function selectTMDB(tmdbId, mediaType) {
   const key = data.settings.tmdb_api_key;
-  showToast('Fetching series data…');
-
+  const isMovie = mediaType === 'movie';
+  showToast('Fetching from TMDB…');
   try {
-    const [seriesRes, seasonsRes] = await Promise.all([
-      fetch(`https://api.themoviedb.org/3/tv/${tmdbId}?api_key=${key}`),
-      fetch(`https://api.themoviedb.org/3/tv/${tmdbId}?api_key=${key}&append_to_response=season/1,season/2,season/3,season/4,season/5`)
-    ]);
+    if (isMovie) {
+      const res = await fetch(`https://api.themoviedb.org/3/movie/${tmdbId}?api_key=${key}`);
+      const m = await res.json();
+      switchTab('manual');
+      setManualType('movie');
+      document.getElementById('m-title').value = m.title || '';
+      document.getElementById('m-synopsis').value = m.overview || '';
+      document.getElementById('m-poster').value = m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : '';
+      document.getElementById('m-seasons').value = '';
+      document.getElementById('m-tmdb-id').value = String(tmdbId);
+      document.getElementById('m-genres').value = (m.genres||[]).map(g=>g.name).join(', ');
+      const yearEl = document.getElementById('m-year'); if (yearEl) yearEl.value = (m.release_date||'').split('-')[0] || '';
+      showToast('TMDB data loaded — review and save', 'success');
+      return;
+    }
+    const seriesRes = await fetch(`https://api.themoviedb.org/3/tv/${tmdbId}?api_key=${key}`);
     const s = await seriesRes.json();
-
-    // Fetch individual seasons
     const totalSeasons = s.number_of_seasons || 1;
     const seasonFetches = [];
     for (let i = 1; i <= Math.min(totalSeasons, 50); i++) {
       seasonFetches.push(fetch(`https://api.themoviedb.org/3/tv/${tmdbId}/season/${i}?api_key=${key}`).then(r=>r.json()));
     }
     const seasonData = await Promise.all(seasonFetches);
-
     const seasons = seasonData.map(sea => ({
       season_number: sea.season_number,
       episodes: (sea.episodes||[]).map(ep => ({
@@ -1632,26 +1642,22 @@ async function selectTMDB(tmdbId) {
         watched: false
       }))
     }));
-
-    // Prefill manual form
     switchTab('manual');
-    setManualType('tv'); // default for TMDB TV results; user can switch to Anime if needed
+    setManualType('tv');
     document.getElementById('m-title').value = s.name;
     document.getElementById('m-synopsis').value = s.overview || '';
     document.getElementById('m-poster').value = s.poster_path ? `https://image.tmdb.org/t/p/w500${s.poster_path}` : '';
     document.getElementById('m-seasons').value = s.number_of_seasons || '';
-    document.getElementById('m-tmdb-id').value = tmdbId;
+    document.getElementById('m-tmdb-id').value = String(tmdbId);
     document.getElementById('m-genres').value = (s.genres||[]).map(g=>g.name).join(', ');
-
-    // Build season rows
+    const yearEl = document.getElementById('m-year'); if (yearEl) yearEl.value = (s.first_air_date||'').split('-')[0] || '';
     const sb = document.getElementById('season-builder');
-    sb.innerHTML = '';
-    seasonBuilderCount = 0;
+    sb.innerHTML = ''; seasonBuilderCount = 0;
     seasons.forEach(sea => addSeasonRow(sea));
-
     showToast('TMDB data loaded — review and save', 'success');
   } catch(e) {
     showToast('TMDB fetch failed', 'error');
+    console.error(e);
   }
 }
 
@@ -1862,17 +1868,31 @@ async function openPersonModal(personId) {
       ? `<img class="person-photo-lg" src="https://image.tmdb.org/t/p/w185${person.profile_path}">`
       : `<div class="person-photo-ph-lg">👤</div>`;
 
-    // Sort by date descending, dedupe
     const byDate = (a,b) => {
       const da = a.release_date||a.first_air_date||'';
       const db = b.release_date||b.first_air_date||'';
       return db.localeCompare(da);
     };
-    const movies = (credits.cast||[]).filter(c=>c.media_type==='movie').filter((c,i,arr)=>arr.findIndex(x=>x.id===c.id)===i).sort(byDate);
-    const tv = (credits.cast||[]).filter(c=>c.media_type==='tv').filter((c,i,arr)=>arr.findIndex(x=>x.id===c.id)===i).sort(byDate);
-    personFilmData = { movies, tv };
-    currentFilmTab = 'movies';
-    switchFilmTab('movies');
+    const dedup = (arr) => arr.filter((c,i,a) => a.findIndex(x=>x.id===c.id)===i);
+
+    const allMovies = dedup((credits.cast||[]).filter(c=>c.media_type==='movie')).sort(byDate);
+    const allTv = dedup((credits.cast||[]).filter(c=>c.media_type==='tv')).sort(byDate);
+
+    // Anime = animated (genre 16) + Japanese or Korean origin, or already in library as anime
+    const isAnimeEntry = (c) => {
+      const libMatch = data.series.find(s => String(s.tmdb_id) === String(c.id));
+      if (libMatch) return libMatch.type === 'anime';
+      return (c.genre_ids||[]).includes(16) &&
+        (c.origin_country||[]).some(oc => ['JP','KR','CN','TW'].includes(oc));
+    };
+    const anime = allTv.filter(c => isAnimeEntry(c));
+    const tv = allTv.filter(c => !isAnimeEntry(c));
+
+    personFilmData = { movies: allMovies, tv, anime };
+    // Default to anime tab if person has anime credits (likely a VA)
+    const defaultTab = anime.length > tv.length ? 'anime' : 'movies';
+    currentFilmTab = defaultTab;
+    switchFilmTab(defaultTab);
   } catch(e) {
     document.getElementById('person-modal-name').textContent = 'Could not load';
     console.error(e);
@@ -1883,64 +1903,84 @@ function switchFilmTab(tab) {
   currentFilmTab = tab;
   document.getElementById('ftab-movies').classList.toggle('active', tab==='movies');
   document.getElementById('ftab-tv').classList.toggle('active', tab==='tv');
+  document.getElementById('ftab-anime').classList.toggle('active', tab==='anime');
   renderFilmTab();
 }
 
 function renderFilmTab() {
-  const items = currentFilmTab === 'movies' ? personFilmData.movies : personFilmData.tv;
+  const items = personFilmData[currentFilmTab] || [];
   const grid = document.getElementById('filmography-grid');
-  if (items.length === 0) { grid.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:20px 0;">Nothing found.</div>'; return; }
+  if (items.length === 0) {
+    grid.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:20px 0;">Nothing found.</div>';
+    return;
+  }
 
-  // Split: in library first, then rest
+  // Library entries first, then rest
   const inLib = items.filter(item => data.series.some(s => String(s.tmdb_id)===String(item.id)));
   const notInLib = items.filter(item => !data.series.some(s => String(s.tmdb_id)===String(item.id)));
   const sorted = [...inLib, ...notInLib];
 
   grid.innerHTML = '';
-  sorted.slice(0,60).forEach(item => {
+  sorted.slice(0, 60).forEach(item => {
     const title = item.title||item.name||'Untitled';
     const year = (item.release_date||item.first_air_date||'').split('-')[0];
     const libEntry = data.series.find(s => String(s.tmdb_id)===String(item.id));
     const alreadyIn = !!libEntry;
-    const mediaType = currentFilmTab==='movies' ? 'movie' : 'tv';
+    const isAnimeTab = currentFilmTab === 'anime';
+    const isMovie = currentFilmTab === 'movies';
+    const icon = isAnimeTab ? '⛩' : isMovie ? '🎬' : '📺';
 
     const card = document.createElement('div');
-    card.className = 'film-card'+(alreadyIn?' in-library':'');
+    card.className = 'film-card' + (alreadyIn ? ' in-library' : '');
     card.innerHTML = `
-      ${alreadyIn ? '<div class="in-library-badge">✓ In Library</div>' : '<div class="add-film-badge">+ Add</div>'}
+      ${alreadyIn ? '<div class="in-library-badge">✓ In Library</div>' : `<div class="add-film-badge">+ Add</div>`}
       ${item.poster_path
-        ? `<img class="film-poster" src="https://image.tmdb.org/t/p/w154${item.poster_path}" loading="lazy" onerror="this.outerHTML='<div class=\\'film-poster-ph\\'>🎬</div>'">`
-        : `<div class="film-poster-ph">${mediaType==='movie'?'🎬':'📺'}</div>`}
+        ? `<img class="film-poster" src="https://image.tmdb.org/t/p/w154${item.poster_path}" loading="lazy" onerror="this.outerHTML='<div class=\\'film-poster-ph\\'>${icon}</div>'">`
+        : `<div class="film-poster-ph">${icon}</div>`}
       <div class="film-body">
         <div class="film-title">${title}</div>
-        ${year?`<div class="film-year">${year}</div>`:''}
+        ${year ? `<div class="film-year">${year}</div>` : ''}
       </div>`;
+
     card.onclick = () => {
       if (alreadyIn) {
         closeModal('person-modal');
         openDetail(libEntry.id);
       } else {
-        openQuickAdd(item, mediaType);
+        addFromFilmographyFull(item, currentFilmTab);
       }
     };
     grid.appendChild(card);
   });
 }
 
-// ─── Quick-Add from filmography ────────────────────────────────────────────
-function openQuickAdd(item, mediaType) {
-  quickAddPayload = { item, mediaType };
-  const title = item.title||item.name||'Untitled';
-  const year = (item.release_date||item.first_air_date||'').split('-')[0];
-  document.getElementById('qa-title').textContent = title;
-  document.getElementById('qa-sub').textContent = [mediaType==='movie'?'Movie':'TV', year].filter(Boolean).join(' · ');
-  document.getElementById('qa-type').value = mediaType==='movie' ? 'movie' : 'tv';
-  document.getElementById('qa-status').value = 'Plan to Watch';
-  document.getElementById('qa-episode-fields').classList.add('hidden');
-  document.getElementById('qa-poster-wrap').innerHTML = item.poster_path
-    ? `<img class="qa-poster" src="https://image.tmdb.org/t/p/w154${item.poster_path}">`
-    : `<div class="qa-poster-ph">${mediaType==='movie'?'🎬':'📺'}</div>`;
-  document.getElementById('quick-add-modal').classList.remove('hidden');
+// ─── Add from filmography — full Search flow ───────────────────────────────
+async function addFromFilmographyFull(item, tab) {
+  closeModal('person-modal');
+  const title = item.title || item.name || 'Untitled';
+  const isAnime = tab === 'anime';
+  const isMovie = tab === 'movies';
+
+  // Open the add modal with the correct search source pre-selected
+  openAddModal(isAnime ? 'anilist' : 'tmdb');
+
+  if (isAnime) {
+    // Switch to AniList search tab and pre-fill the query
+    setSearchSource('anilist');
+    document.getElementById('tmdb-search-input').value = title;
+    // Auto-search AniList immediately
+    await searchAnilistAnime();
+  } else if (isMovie) {
+    // TMDB movie — directly fetch and fill the form, same as selectTMDB
+    setSearchSource('tmdb');
+    showToast('Loading from TMDB…');
+    await selectTMDB(item.id, 'movie');
+  } else {
+    // TMDB TV — directly fetch and fill the form
+    setSearchSource('tmdb');
+    showToast('Loading from TMDB…');
+    await selectTMDB(item.id, 'tv');
+  }
 }
 
 function updateQaEpisodeFields() {
