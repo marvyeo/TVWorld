@@ -634,6 +634,10 @@
         <input class="form-input" id="m-anilist-id" placeholder="e.g. 21355">
       </div>
       <div class="form-group">
+        <label class="form-label">Start Year (optional)</label>
+        <input class="form-input" type="number" id="m-year" placeholder="e.g. 2016">
+      </div>
+      <div class="form-group">
         <label class="form-label">My Rating</label>
         <div class="rating-stars" id="rating-stars"></div>
       </div>
@@ -1428,6 +1432,8 @@ function openEditModal() {
   document.getElementById('m-poster').value = s.poster_url || '';
   document.getElementById('m-tmdb-id').value = s.tmdb_id || '';
   document.getElementById('m-anilist-id').value = s.anilist_id || '';
+  const yearEl = document.getElementById('m-year');
+  if (yearEl) yearEl.value = s.year || '';
   ratingValue = s.rating || 0;
   renderRatingStars(ratingValue);
 
@@ -1540,6 +1546,7 @@ function saveSeries() {
     poster_url: document.getElementById('m-poster').value.trim(),
     tmdb_id: document.getElementById('m-tmdb-id').value.trim() || null,
     anilist_id: document.getElementById('m-anilist-id').value.trim() || null,
+    year: document.getElementById('m-year')?.value.trim() || null,
     rating: ratingValue || null,
     seasons
   };
@@ -2505,7 +2512,8 @@ async function selectAnilistAnime(anilistId) {
     document.getElementById('m-anilist-id').value = String(anilistId);
     document.getElementById('m-tmdb-id').value = '';
     document.getElementById('m-genres').value = (root.genres || []).join(', ');
-    document.getElementById('m-year').value = root.startDate?.year || '';
+    const yearEl = document.getElementById('m-year');
+    if (yearEl) yearEl.value = root.startDate?.year || '';
     const sb = document.getElementById('season-builder');
     sb.innerHTML = ''; seasonBuilderCount = 0;
     seasons.forEach(sea => addSeasonRow(sea));
@@ -2567,7 +2575,7 @@ async function fetchAnilistChain(rootId) {
     // Fetch full data for the sequel (need episodes count + relations to continue chain)
     const seqJson = await anilistGQL(gql, { id: sequel.node.id });
     const seqMedia = seqJson.data?.Media;
-    if (!seqMedia) break;
+    if (!seqMedia || seqMedia.format === 'MOVIE' || seqMedia.format === 'OVA' || seqMedia.format === 'SPECIAL') break;
     chain.push(seqMedia);
     current = seqMedia;
     await new Promise(r => setTimeout(r, 300));
