@@ -2396,6 +2396,38 @@ function searchCombined() {
 }
 
 // ─── Jikan search (primary anime source) ──────────────────────────────────
+// ─── jikan-edge (MAL alternative, replaces api.jikan.moe) ────────────────
+// Base URL: https://jikan.lucashdo.com/v1
+// Key differences from Jikan v4:
+//   Fields: camelCase (malId, titleEnglish, etc.)
+//   Images: images.{small,medium,large} — no jpg/webp split
+//   Dates:  aired.from = "YYYY-MM-DD" string (no prop.from.year nesting)
+//   Pagination: meta.pagination.hasNextPage (not pagination.has_next_page)
+//   Params: no &limit= or &sfw= — returns 400 if passed
+const JIKAN_BASE = 'https://jikan.lucashdo.com/v1';
+
+async function jikanFetch(url, retries = 3) {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const res = await fetch(url);
+      if (res.status === 429 || res.status === 503 || res.status === 504) {
+        const wait = attempt * 1500;
+        console.log(`[jikan-edge] ${res.status} attempt ${attempt}, retrying in ${wait}ms…`);
+        await new Promise(r => setTimeout(r, wait));
+        continue;
+      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      // jikan-edge returns stale cached data with meta.stale = true — usable, just log it
+      if (json.meta?.stale) console.log('[jikan-edge] stale cache response for', url);
+      return json;
+    } catch(e) {
+      if (attempt === retries) throw e;
+      await new Promise(r => setTimeout(r, attempt * 1000));
+    }
+  }
+}
+
 async function searchJikan() {
   const q = document.getElementById('tmdb-search-input').value.trim();
   if (!q) return;
@@ -2403,22 +2435,24 @@ async function searchJikan() {
   container.innerHTML = '<div style="padding:12px;color:var(--muted);font-size:13px;">Searching MAL…</div>';
   container.classList.remove('hidden');
   try {
-    const res = await fetch(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(q)}&limit=10&sfw=false`);
-    if (!res.ok) throw new Error(`Jikan ${res.status}`);
-    const json = await res.json();
+    // No &limit= or &sfw= — jikan-edge rejects unknown params
+    const json = await jikanFetch(`${JIKAN_BASE}/anime?q=${encodeURIComponent(q)}`);
     const results = json.data || [];
     if (!results.length) {
       container.innerHTML = '<div style="padding:12px;color:var(--muted);font-size:13px;">No results found</div>';
       return;
     }
     container.className = 'tmdb-results';
-    container.innerHTML = results.map(r => {
-      const title = r.title_english || r.title || 'Untitled';
-      const year = r.aired?.prop?.from?.year || '?';
+    container.innerHTML = results.slice(0, 10).map(r => {
+      const title = r.titleEnglish || r.title || 'Untitled';
+      // aired.from is a "YYYY-MM-DD" string in jikan-edge
+      const year = r.aired?.from ? r.aired.from.split('-')[0] : '?';
       const eps = r.episodes ? `${r.episodes} eps` : 'ongoing';
-      return `<div class="tmdb-result-item" onclick="selectJikan(${r.mal_id})">
-        ${r.images?.jpg?.image_url
-          ? `<img class="tmdb-result-thumb" src="${r.images.jpg.image_url}">`
+      // images.medium replaces images.jpg.image_url
+      const thumb = r.images?.medium || r.images?.small || '';
+      return `<div class="tmdb-result-item" onclick="selectJikan(${r.malId})">
+        ${thumb
+          ? `<img class="tmdb-result-thumb" src="${thumb}">`
           : `<div class="tmdb-result-thumb" style="display:flex;align-items:center;justify-content:center;color:var(--muted)">⛩</div>`}
         <div>
           <div class="tmdb-result-title">${title}
@@ -2429,92 +2463,84 @@ async function searchJikan() {
       </div>`;
     }).join('');
   } catch(e) {
-    container.innerHTML = `<div style="padding:12px;color:var(--dropped);font-size:13px;">Jikan unavailable (${e.message}) — try again in a moment</div>`;
-    console.error('Jikan search error:', e);
+    container.innerHTML = `<div style="padding:12px;color:var(--dropped);font-size:13px;">
+      MAL unavailable — <button class="btn btn-ghost btn-sm" onclick="searchJikan()" style="margin-left:6px;">Retry</button>
+    </div>`;
+    console.error('jikan-edge search error:', e);
   }
 }
 
 async function selectJikan(malId) {
   showToast('Fetching from MAL…');
   try {
-    // Fetch full anime details and episodes in parallel
-    const [detailRes, epsRes] = await Promise.all([
-      fetch(`https://api.jikan.moe/v4/anime/${malId}/full`),
-      fetch(`https://api.jikan.moe/v4/anime/${malId}/episodes?page=1`)
-    ]);
-    const detail = await detailRes.json();
-    const epsJson = await epsRes.json();
+    const detail = await jikanFetch(`${JIKAN_BASE}/anime/${malId}/full`);
     const anime = detail.data;
     if (!anime) { showToast('MAL fetch failed', 'error'); return; }
 
-    // Fetch remaining episode pages if any
+    await new Promise(r => setTimeout(r, 500));
+    const epsJson = await jikanFetch(`${JIKAN_BASE}/anime/${malId}/episodes?page=1`);
     let allEpData = [...(epsJson.data || [])];
-    const totalPages = epsJson.pagination?.last_visible_page || 1;
-    for (let p = 2; p <= totalPages; p++) {
-      await new Promise(r => setTimeout(r, 400));
-      const r = await fetch(`https://api.jikan.moe/v4/anime/${malId}/episodes?page=${p}`);
-      const j = await r.json();
+    // Pagination is now at meta.pagination.hasNextPage
+    const totalPages = epsJson.meta?.pagination?.hasNextPage
+      ? Math.ceil((epsJson.meta.pagination.total || allEpData.length) / (epsJson.meta.pagination.limit || 100))
+      : 1;
+    for (let p = 2; p <= Math.min(totalPages, 20); p++) {
+      await new Promise(r => setTimeout(r, 600));
+      const j = await jikanFetch(`${JIKAN_BASE}/anime/${malId}/episodes?page=${p}`);
       allEpData.push(...(j.data || []));
+      if (!j.meta?.pagination?.hasNextPage) break;
     }
 
-    // Build episodes from Jikan data (sequential index = episode number)
     const totalEps = anime.episodes || allEpData.length || 0;
     const episodes = Array.from({ length: totalEps }, (_, i) => {
       const jep = allEpData[i];
       return {
         episode_number: i + 1,
-        title: (jep?.title_romanji || jep?.title || `Episode ${i + 1}`),
+        title: jep?.titleRomanji || jep?.title || `Episode ${i + 1}`,
         synopsis: null,
+        // aired is a "YYYY-MM-DD" string in jikan-edge
         air_date: jep?.aired ? jep.aired.split('T')[0] : null,
         watched: false
       };
     });
 
-    // Genres from Jikan
+    // genres/themes/demographics are arrays of { malId, name, url }
     const genres = [
-      ...(anime.genres || []),
-      ...(anime.themes || []),
-      ...(anime.demographics || [])
+      ...(anime.genres || []), ...(anime.themes || []), ...(anime.demographics || [])
     ].map(g => g.name);
 
     switchTab('manual');
     setManualType('anime');
-    document.getElementById('m-title').value = anime.title_english || anime.title || '';
+    document.getElementById('m-title').value = anime.titleEnglish || anime.title || '';
     document.getElementById('m-synopsis').value = anime.synopsis || '';
-    document.getElementById('m-poster').value = anime.images?.jpg?.large_image_url || anime.images?.jpg?.image_url || '';
+    // images.large replaces images.jpg.large_image_url
+    document.getElementById('m-poster').value = anime.images?.large || anime.images?.medium || '';
     document.getElementById('m-seasons').value = '1';
     document.getElementById('m-tmdb-id').value = '';
     document.getElementById('m-anilist-id').value = '';
     document.getElementById('m-mal-id').value = String(malId);
     document.getElementById('m-genres').value = [...new Set(genres)].join(', ');
-
-    // Populate season builder with 1 season showing episode count
     const sb = document.getElementById('season-builder');
     sb.innerHTML = ''; seasonBuilderCount = 0;
     addSeasonRow({ season_number: 1, episodes });
-
-    // Store episode data for saveSeries to pick up
     window._pendingJikanEps = allEpData;
-
     showToast(`Loaded ${totalEps} episodes from MAL ✓`, 'success');
   } catch(e) {
-    showToast('MAL fetch failed — try again', 'error');
+    showToast('MAL fetch failed — try again shortly', 'error');
     console.error('selectJikan error:', e);
   }
 }
 
-// ─── Jikan episode enrichment (for resync of existing entries) ─────────────
+// ─── Episode enrichment (for resync of existing mal_id entries) ────────────
 async function jikanFetchEpisodes(malId) {
   const results = [];
   let page = 1, hasNext = true;
   while (hasNext && page <= 20) {
     try {
-      await new Promise(r => setTimeout(r, 400));
-      const res = await fetch(`https://api.jikan.moe/v4/anime/${malId}/episodes?page=${page}`);
-      if (!res.ok) { hasNext = false; break; }
-      const json = await res.json();
+      await new Promise(r => setTimeout(r, 600));
+      const json = await jikanFetch(`${JIKAN_BASE}/anime/${malId}/episodes?page=${page}`);
       results.push(...(json.data||[]));
-      hasNext = json.pagination?.has_next_page || false;
+      hasNext = json.meta?.pagination?.hasNextPage || false;
       page++;
     } catch(e) { hasNext = false; }
   }
@@ -2528,7 +2554,8 @@ async function enrichEpisodesFromJikan(s, malId) {
   jikanEps.forEach((jep, idx) => {
     const ep = allEps.find(e => e.episode_number === idx + 1);
     if (ep) {
-      const t = jep.title_romanji || jep.title;
+      // titleRomanji in jikan-edge, title as fallback
+      const t = jep.titleRomanji || jep.title;
       if (t && !t.match(/^Episode \d+$/i)) ep.title = t;
       if (jep.aired) ep.air_date = jep.aired.split('T')[0];
     }
