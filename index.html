@@ -232,7 +232,16 @@
   .gap-2 { gap: 8px; }
   .ml-auto { margin-left: auto; }
   select option { background: var(--card); color: var(--text); }
-  /* ── Sort bar ── */
+  /* ── Type toggles ── */
+  .type-toggles { display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; }
+  .type-pill { display:inline-flex; align-items:center; gap:5px; padding:6px 14px; border-radius:20px; border:1px solid var(--border); background:var(--surface); color:var(--muted); font-size:12px; font-weight:600; cursor:pointer; transition:all 0.15s; user-select:none; }
+  .type-pill.active-tv    { background:rgba(96,165,250,0.15); border-color:var(--plan); color:var(--plan); }
+  .type-pill.active-anime { background:rgba(176,140,248,0.15); border-color:var(--accent2); color:var(--accent2); }
+  .type-pill.active-movie { background:rgba(244,114,182,0.15); border-color:#f472b6; color:#f472b6; }
+
+  /* ── AniList badge on cards ── */
+  .anilist-badge { position:absolute; top:8px; left:8px; background:rgba(2,169,132,0.9); border-radius:4px; font-size:8px; font-weight:700; padding:2px 5px; color:#fff; letter-spacing:0.04em; }
+
   .sort-bar { display:flex; gap:6px; margin-bottom:16px; flex-wrap:wrap; }
   .sort-btn { padding:5px 12px; border-radius:20px; font-size:11px; font-weight:600; border:1px solid var(--border); background:var(--surface); color:var(--muted); cursor:pointer; transition:all 0.15s; }
   .sort-btn.active { background:rgba(124,106,245,0.15); border-color:var(--accent); color:var(--accent2); }
@@ -402,11 +411,19 @@
         </select>
         <button class="btn btn-primary" onclick="openAddModal('tmdb')">+ Add Series</button>
       </div>
+      <div class="type-toggles" id="type-toggles">
+        <div class="type-pill active-tv"    data-type="tv"    onclick="toggleType('tv',this)">📺 TV</div>
+        <div class="type-pill active-anime" data-type="anime" onclick="toggleType('anime',this)">⛩ Anime</div>
+        <div class="type-pill active-movie" data-type="movie" onclick="toggleType('movie',this)">🎬 Movie</div>
+      </div>
       <div class="sort-bar">
         <span style="font-size:11px;color:var(--muted);align-self:center;">Sort:</span>
-        <button class="sort-btn active" data-sort="added" onclick="setSort('added',this)">Date Added</button>
+        <button class="sort-btn active" data-sort="added-desc" onclick="setSort('added-desc',this)">Added (New)</button>
+        <button class="sort-btn" data-sort="added-asc" onclick="setSort('added-asc',this)">Added (Old)</button>
         <button class="sort-btn" data-sort="az" onclick="setSort('az',this)">A → Z</button>
-        <button class="sort-btn" data-sort="year" onclick="setSort('year',this)">Year (New→Old)</button>
+        <button class="sort-btn" data-sort="za" onclick="setSort('za',this)">Z → A</button>
+        <button class="sort-btn" data-sort="year-desc" onclick="setSort('year-desc',this)">Year (New)</button>
+        <button class="sort-btn" data-sort="year-asc" onclick="setSort('year-asc',this)">Year (Old)</button>
       </div>
 
       <div class="series-grid" id="series-grid"></div>
@@ -429,6 +446,13 @@
           <span style="color:var(--muted)">🔍</span>
           <input type="text" id="stars-search" placeholder="Search cast…" oninput="renderStarsGrid()">
         </div>
+      </div>
+      <div class="sort-bar">
+        <span style="font-size:11px;color:var(--muted);align-self:center;">Sort:</span>
+        <button class="sort-btn active" data-stars-sort="count-desc" onclick="setStarsSort('count-desc',this)">Most Titles</button>
+        <button class="sort-btn" data-stars-sort="count-asc" onclick="setStarsSort('count-asc',this)">Fewest Titles</button>
+        <button class="sort-btn" data-stars-sort="az" onclick="setStarsSort('az',this)">A → Z</button>
+        <button class="sort-btn" data-stars-sort="za" onclick="setStarsSort('za',this)">Z → A</button>
       </div>
       <div class="stars-grid" id="stars-grid"></div>
     </div>
@@ -453,7 +477,8 @@
               <option value="Dropped">Dropped</option>
             </select>
             <button class="btn btn-secondary btn-sm" onclick="openEditModal()">Edit</button>
-            <button class="btn btn-secondary btn-sm" onclick="refreshFromTMDB()" id="refresh-tmdb-btn">↻ Refresh TMDB</button>
+            <button class="btn btn-secondary btn-sm" onclick="refreshFromTMDB()" id="refresh-tmdb-btn">↻ TMDB</button>
+            <button class="btn btn-secondary btn-sm hidden" onclick="refreshFromAnilist()" id="refresh-anilist-btn">↻ AniList</button>
             <button class="recap-btn">✨ Recap <span class="recap-label">Coming Soon</span></button>
             <button class="btn btn-danger btn-sm" onclick="deleteSeries()">Delete</button>
           </div>
@@ -496,6 +521,15 @@
         <button class="btn btn-primary btn-sm" onclick="savePlatforms()" style="margin-top:14px;">Save Platforms</button>
       </div>
       <div class="settings-section">
+        <div class="settings-section-title">AniList Integration</div>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">AniList provides accurate episode/season data for anime. Import your AniList library or bulk-resync existing anime entries.</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-primary btn-sm" onclick="startAnilistImport()">Import from AniList</button>
+          <button class="btn btn-secondary btn-sm" onclick="bulkResyncAnilist()">↻ Resync All Anime</button>
+        </div>
+        <span style="font-size:12px;color:var(--muted);margin-left:0;margin-top:8px;display:block;" id="anilist-sync-status"></span>
+      </div>
+      <div class="settings-section">
         <div class="settings-section-title">TMDB Account Import</div>
         <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Import your watchlist, rated titles, and custom lists from your TMDB account.</p>
         <button class="btn btn-primary btn-sm" onclick="startTmdbImport()">Import from TMDB Account</button>
@@ -521,13 +555,17 @@
     <div class="modal-title" id="add-modal-title">Add Series</div>
     <button class="modal-close" onclick="closeModal('add-modal')">✕</button>
 
-    <!-- TMDB search tab -->
+    <!-- TMDB/AniList search tab -->
     <div id="tmdb-tab">
       <div class="form-group">
-        <label class="form-label">Search TMDB</label>
+        <label class="form-label">Search via</label>
+        <div style="display:flex;gap:6px;margin-bottom:12px;">
+          <div class="type-pill active-tv" id="search-src-tmdb" onclick="setSearchSource('tmdb')" style="cursor:pointer;">TMDB (TV / Movies)</div>
+          <div class="type-pill" id="search-src-anilist" onclick="setSearchSource('anilist')" style="cursor:pointer;">AniList (Anime)</div>
+        </div>
         <div style="display:flex;gap:8px;">
-          <input class="form-input" id="tmdb-search-input" placeholder="Series title…" onkeydown="if(event.key==='Enter')searchTMDB()">
-          <button class="btn btn-primary" onclick="searchTMDB()">Search</button>
+          <input class="form-input" id="tmdb-search-input" placeholder="Title…" onkeydown="if(event.key==='Enter')searchCombined()">
+          <button class="btn btn-primary" onclick="searchCombined()">Search</button>
         </div>
       </div>
       <div id="tmdb-results" class="hidden"></div>
@@ -573,6 +611,10 @@
       <div class="form-group">
         <label class="form-label">TMDB ID (optional, for provider lookup)</label>
         <input class="form-input" id="m-tmdb-id" placeholder="e.g. 1396">
+      </div>
+      <div class="form-group" id="m-anilist-group">
+        <label class="form-label">AniList ID (optional, anime only)</label>
+        <input class="form-input" id="m-anilist-id" placeholder="e.g. 21459">
       </div>
       <div class="form-group">
         <label class="form-label">My Rating</label>
@@ -723,6 +765,39 @@
   </div>
 </div>
 
+<!-- AniList Import Modal -->
+<div id="anilist-import-modal" class="modal-overlay hidden">
+  <div class="modal modal-xl">
+    <div class="modal-title">Import from AniList</div>
+    <button class="modal-close" onclick="closeModal('anilist-import-modal')">✕</button>
+    <div id="anilist-import-step-auth">
+      <p style="color:var(--muted);font-size:13px;line-height:1.6;margin-bottom:16px;">Enter your AniList username to import your lists. AniList is public — no login needed.</p>
+      <div class="form-group">
+        <label class="form-label">AniList Username</label>
+        <div style="display:flex;gap:8px;">
+          <input class="form-input" id="anilist-username" placeholder="e.g. marvinxx" onkeydown="if(event.key==='Enter')fetchAnilistLists()">
+          <button class="btn btn-primary" onclick="fetchAnilistLists()">Fetch Lists</button>
+        </div>
+      </div>
+    </div>
+    <div id="anilist-import-step-preview" class="hidden">
+      <div id="anilist-import-summary" style="font-size:13px;color:var(--muted);margin-bottom:12px;"></div>
+      <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+        <button class="btn btn-ghost btn-sm anilist-filter-btn active" data-filter="all" onclick="setAnilistFilter('all',this)">All</button>
+        <button class="btn btn-ghost btn-sm anilist-filter-btn" data-filter="new" onclick="setAnilistFilter('new',this)">New only</button>
+        <button class="btn btn-ghost btn-sm anilist-filter-btn" data-filter="CURRENT" onclick="setAnilistFilter('CURRENT',this)">Watching</button>
+        <button class="btn btn-ghost btn-sm anilist-filter-btn" data-filter="COMPLETED" onclick="setAnilistFilter('COMPLETED',this)">Completed</button>
+        <button class="btn btn-ghost btn-sm anilist-filter-btn" data-filter="PLANNING" onclick="setAnilistFilter('PLANNING',this)">Plan to Watch</button>
+      </div>
+      <div id="anilist-import-list" style="max-height:340px;overflow-y:auto;border:1px solid var(--border);border-radius:12px;"></div>
+      <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end;">
+        <button class="btn btn-ghost" onclick="closeModal('anilist-import-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="confirmAnilistImport()" id="anilist-import-confirm-btn">Import New Titles</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ===================== SCRIPT ===================== -->
 <script>
 // ─── Config ────────────────────────────────────────────────────────────────
@@ -744,7 +819,12 @@ let pendingIngestData = null;
 let editingSeriesId = null;
 let ratingValue = 0;
 let seasonBuilderCount = 0;
-let currentSort = 'added';
+let currentSort = 'added-desc';
+let currentStarsSort = 'count-desc';
+let activeTypes = new Set(['tv','anime','movie']); // all on by default
+let searchSource = 'tmdb'; // 'tmdb' or 'anilist'
+let anilistImportItems = [];
+let anilistImportFilter = 'all';
 let personFilmData = { movies: [], tv: [] };
 let currentFilmTab = 'movies';
 let quickAddPayload = null;
@@ -921,9 +1001,16 @@ function switchView(view) {
 // ─── Sort ──────────────────────────────────────────────────────────────────
 function setSort(sort, btn) {
   currentSort = sort;
-  document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('[data-sort]').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   renderGrid();
+}
+
+function setStarsSort(sort, btn) {
+  currentStarsSort = sort;
+  document.querySelectorAll('[data-stars-sort]').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderStarsGrid();
 }
 
 // ─── Grid ─────────────────────────────────────────────────────────────────
@@ -938,6 +1025,7 @@ function renderGrid() {
     if (currentView === 'paused' && s.status !== 'Paused') return false;
     if (currentView === 'completed' && s.status !== 'Completed') return false;
     if (currentView === 'dropped' && s.status !== 'Dropped') return false;
+    if (!activeTypes.has(s.type || 'tv')) return false;
     if (query && !s.title.toLowerCase().includes(query)) return false;
     if (genreFilter && !(s.genres||[]).includes(genreFilter)) return false;
     return true;
@@ -946,14 +1034,17 @@ function renderGrid() {
   // Sorting
   if (currentSort === 'az') {
     filtered.sort((a,b) => a.title.localeCompare(b.title));
-  } else if (currentSort === 'year') {
-    filtered.sort((a,b) => {
-      const ya = parseInt(a.year) || 0;
-      const yb = parseInt(b.year) || 0;
-      return yb - ya;
-    });
+  } else if (currentSort === 'za') {
+    filtered.sort((a,b) => b.title.localeCompare(a.title));
+  } else if (currentSort === 'year-desc') {
+    filtered.sort((a,b) => (parseInt(b.year)||0) - (parseInt(a.year)||0));
+  } else if (currentSort === 'year-asc') {
+    filtered.sort((a,b) => (parseInt(a.year)||0) - (parseInt(b.year)||0));
+  } else if (currentSort === 'added-asc') {
+    // already in insertion order — reverse it
+    filtered.reverse();
   }
-  // 'added' = original array order (no sort needed)
+  // 'added-desc' = default insertion order, no sort needed
 
   // Refresh genre filter
   const genres = [...new Set(data.series.flatMap(s => s.genres||[]))].sort();
@@ -980,10 +1071,12 @@ function renderGrid() {
     const card = document.createElement('div');
     card.className = 'series-card';
     card.onclick = () => openDetail(s.id);
+    const typeIcon = s.type === 'movie' ? '🎬' : s.type === 'anime' ? '⛩' : '📺';
     card.innerHTML = `
+      ${s.anilist_id ? '<div class="anilist-badge">AL</div>' : ''}
       ${s.poster_url ? `<img class="series-poster" src="${s.poster_url}" alt="${s.title}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
-        <div class="series-poster-placeholder" style="display:none">📺</div>`
-      : `<div class="series-poster-placeholder">📺</div>`}
+        <div class="series-poster-placeholder" style="display:none">${typeIcon}</div>`
+      : `<div class="series-poster-placeholder">${typeIcon}</div>`}
       <div class="series-card-body">
         <div class="series-card-title">${s.title}</div>
         <div class="series-card-meta">
@@ -1051,19 +1144,35 @@ function openDetail(id) {
   document.getElementById('detail-synopsis').textContent = s.synopsis || 'No synopsis available.';
   document.getElementById('detail-status-select').value = s.status;
 
+  // Show/hide resync buttons based on data source
+  const aniBtn = document.getElementById('refresh-anilist-btn');
+  const tmdbBtn = document.getElementById('refresh-tmdb-btn');
+  if (s.anilist_id) {
+    aniBtn.classList.remove('hidden');
+    tmdbBtn.textContent = '↻ TMDB';
+  } else {
+    aniBtn.classList.add('hidden');
+    tmdbBtn.textContent = '↻ Refresh TMDB';
+  }
+
   // Poster
+  const typeIcon = s.type === 'movie' ? '🎬' : s.type === 'anime' ? '⛩' : '📺';
   const pw = document.getElementById('detail-poster-wrap');
   pw.innerHTML = s.poster_url
-    ? `<div class="detail-poster"><img src="${s.poster_url}" onerror="this.parentElement.outerHTML='<div class=\\'detail-poster-ph\\'>📺</div>'"></div>`
-    : `<div class="detail-poster-ph">📺</div>`;
+    ? `<div class="detail-poster"><img src="${s.poster_url}" onerror="this.parentElement.outerHTML='<div class=\\'detail-poster-ph\\'>${typeIcon}</div>'"></div>`
+    : `<div class="detail-poster-ph">${typeIcon}</div>`;
 
   // Tags
   const tags = document.getElementById('detail-tags');
   tags.innerHTML = '';
   const statusClass = { 'Watching':'badge-watching','Plan to Watch':'badge-plan','Paused':'badge-paused','Completed':'badge-complete','Dropped':'badge-dropped' }[s.status]||'';
   tags.innerHTML += `<span class="status-badge ${statusClass}">${s.status}</span>`;
+  const typeLabel = s.type === 'movie' ? '🎬 Movie' : s.type === 'anime' ? '⛩ Anime' : '📺 TV';
+  tags.innerHTML += `<span class="tag">${typeLabel}</span>`;
   (s.genres||[]).forEach(g => tags.innerHTML += `<span class="tag">${g}</span>`);
   if (s.total_seasons) tags.innerHTML += `<span class="tag">${s.total_seasons} Season${s.total_seasons>1?'s':''}</span>`;
+  if (s.anilist_id) tags.innerHTML += `<span class="tag" style="background:rgba(2,169,132,0.15);color:#02a984;">AniList</span>`;
+  if (s.year) tags.innerHTML += `<span class="tag">${s.year}</span>`;
 
   // Rating
   const rEl = document.getElementById('detail-rating');
@@ -1274,6 +1383,7 @@ function openEditModal() {
   document.getElementById('m-synopsis').value = s.synopsis || '';
   document.getElementById('m-poster').value = s.poster_url || '';
   document.getElementById('m-tmdb-id').value = s.tmdb_id || '';
+  document.getElementById('m-anilist-id').value = s.anilist_id || '';
   ratingValue = s.rating || 0;
   renderRatingStars(ratingValue);
 
@@ -1370,6 +1480,7 @@ function saveSeries() {
     synopsis: document.getElementById('m-synopsis').value.trim(),
     poster_url: document.getElementById('m-poster').value.trim(),
     tmdb_id: document.getElementById('m-tmdb-id').value.trim() || null,
+    anilist_id: document.getElementById('m-anilist-id').value.trim() || null,
     rating: ratingValue || null,
     seasons
   };
@@ -1612,7 +1723,11 @@ function renderStarsGrid() {
       entry.titles.push(s.title);
     });
   });
-  let cast = [...castMap.values()].sort((a,b) => b.count - a.count);
+  let cast = [...castMap.values()];
+  if (currentStarsSort === 'count-desc') cast.sort((a,b) => b.count - a.count);
+  else if (currentStarsSort === 'count-asc') cast.sort((a,b) => a.count - b.count);
+  else if (currentStarsSort === 'az') cast.sort((a,b) => a.name.localeCompare(b.name));
+  else if (currentStarsSort === 'za') cast.sort((a,b) => b.name.localeCompare(a.name));
   if (query) cast = cast.filter(c => c.name.toLowerCase().includes(query));
 
   const grid = document.getElementById('stars-grid');
@@ -2178,11 +2293,336 @@ if (uploadZone) {
 }
 
 // ─── Close modals on overlay click ────────────────────────────────────────
-['add-modal','ingest-modal','person-modal','quick-add-modal','tmdb-import-modal'].forEach(id => {
+['add-modal','ingest-modal','person-modal','quick-add-modal','tmdb-import-modal','anilist-import-modal'].forEach(id => {
   document.getElementById(id).addEventListener('click', function(e) {
     if (e.target === this) closeModal(id);
   });
 });
+
+// ─── Type toggles ─────────────────────────────────────────────────────────
+function toggleType(type, el) {
+  const activeClass = { tv:'active-tv', anime:'active-anime', movie:'active-movie' }[type];
+  if (activeTypes.has(type)) {
+    // Don't allow deselecting all — keep at least one
+    if (activeTypes.size === 1) return;
+    activeTypes.delete(type);
+    el.classList.remove(activeClass);
+  } else {
+    activeTypes.add(type);
+    el.classList.add(activeClass);
+  }
+  renderGrid();
+}
+
+// ─── Search source toggle (TMDB vs AniList) ────────────────────────────────
+function setSearchSource(src) {
+  searchSource = src;
+  document.getElementById('search-src-tmdb').classList.toggle('active-tv', src === 'tmdb');
+  document.getElementById('search-src-anilist').classList.toggle('active-anime', src === 'anilist');
+  document.getElementById('tmdb-search-input').placeholder = src === 'anilist' ? 'Anime title…' : 'Title…';
+}
+
+function searchCombined() {
+  if (searchSource === 'anilist') {
+    searchAnilist();
+  } else {
+    searchTMDB();
+  }
+}
+
+// ─── AniList search ────────────────────────────────────────────────────────
+async function searchAnilist() {
+  const q = document.getElementById('tmdb-search-input').value.trim();
+  if (!q) return;
+  showToast('Searching AniList…');
+  const query = `
+    query ($search: String) {
+      Page(perPage: 10) {
+        media(search: $search, type: ANIME, sort: SEARCH_MATCH) {
+          id title { romaji english } coverImage { large } startDate { year }
+          averageScore episodes seasonCount: relations { edges { node { type } } }
+          genres description(asHtml: false)
+        }
+      }
+    }`;
+  try {
+    const res = await fetch('https://graphql.anilist.co', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ query, variables: { search: q } })
+    });
+    const json = await res.json();
+    const results = json.data?.Page?.media || [];
+    const container = document.getElementById('tmdb-results');
+    if (!results.length) {
+      container.innerHTML = '<div style="padding:12px;color:var(--muted);font-size:13px;">No results found on AniList</div>';
+      container.classList.remove('hidden'); return;
+    }
+    container.classList.remove('hidden');
+    container.className = 'tmdb-results';
+    container.innerHTML = results.map(r => {
+      const title = r.title.english || r.title.romaji || 'Untitled';
+      const year = r.startDate?.year || '?';
+      return `<div class="tmdb-result-item" onclick="selectAnilist(${r.id})">
+        ${r.coverImage?.large ? `<img class="tmdb-result-thumb" src="${r.coverImage.large}">` : `<div class="tmdb-result-thumb" style="display:flex;align-items:center;justify-content:center;color:var(--muted)">⛩</div>`}
+        <div>
+          <div class="tmdb-result-title">${title} <span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;background:rgba(2,169,132,0.2);color:#02a984;">AniList</span></div>
+          <div class="tmdb-result-meta">${year} · ${r.averageScore ? r.averageScore/10+'★' : '?'}</div>
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    showToast('AniList search failed', 'error');
+    console.error(e);
+  }
+}
+
+async function selectAnilist(anilistId) {
+  showToast('Fetching from AniList…');
+  const mediaData = await fetchAnilistMedia(anilistId);
+  if (!mediaData) { showToast('AniList fetch failed', 'error'); return; }
+  const seasons = buildSeasonsFromAnilist(mediaData);
+  switchTab('manual');
+  const title = mediaData.title.english || mediaData.title.romaji || 'Untitled';
+  document.getElementById('m-title').value = title;
+  document.getElementById('m-synopsis').value = mediaData.description?.replace(/<[^>]*>/g,'') || '';
+  document.getElementById('m-poster').value = mediaData.coverImage?.extraLarge || mediaData.coverImage?.large || '';
+  document.getElementById('m-seasons').value = seasons.length || '';
+  document.getElementById('m-tmdb-id').value = '';
+  document.getElementById('m-anilist-id').value = anilistId;
+  document.getElementById('m-genres').value = (mediaData.genres||[]).join(', ');
+  const sb = document.getElementById('season-builder');
+  sb.innerHTML = ''; seasonBuilderCount = 0;
+  seasons.forEach(sea => addSeasonRow(sea));
+  showToast('AniList data loaded — review and save', 'success');
+}
+
+async function fetchAnilistMedia(anilistId) {
+  const query = `
+    query ($id: Int) {
+      Media(id: $id, type: ANIME) {
+        id title { romaji english } description(asHtml: false)
+        coverImage { large extraLarge } startDate { year }
+        episodes genres averageScore status
+        relations {
+          edges {
+            relationType
+            node { id type title { romaji english } episodes startDate { year } coverImage { large } status }
+          }
+        }
+      }
+    }`;
+  try {
+    const res = await fetch('https://graphql.anilist.co', {
+      method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json'},
+      body: JSON.stringify({ query, variables: { id: anilistId } })
+    });
+    const json = await res.json();
+    return json.data?.Media || null;
+  } catch(e) { return null; }
+}
+
+function buildSeasonsFromAnilist(media) {
+  // AniList treats each season/cour as a separate Media entry via SEQUEL relations
+  // We build a flat season list from the main entry's episode count
+  const episodes = media.episodes || 0;
+  if (!episodes) return [];
+  const eps = Array.from({length: episodes}, (_,i) => ({
+    episode_number: i+1, title: `Episode ${i+1}`, synopsis: null, air_date: null, watched: false
+  }));
+  return [{ season_number: 1, episodes: eps }];
+}
+
+// ─── AniList Refresh (single entry) ───────────────────────────────────────
+async function refreshFromAnilist() {
+  const s = data.series.find(x => x.id === currentSeriesId);
+  if (!s || !s.anilist_id) { showToast('No AniList ID on this entry', 'error'); return; }
+  const btn = document.getElementById('refresh-anilist-btn');
+  btn.textContent = '↻ Syncing…'; btn.disabled = true;
+  showToast('Refreshing from AniList…');
+  try {
+    await syncEntryFromAnilist(s);
+    saveToDrive();
+    openDetail(s.id);
+    showToast('Refreshed from AniList', 'success');
+  } catch(e) {
+    showToast('AniList refresh failed', 'error');
+    console.error(e);
+  } finally {
+    btn.textContent = '↻ AniList'; btn.disabled = false;
+  }
+}
+
+async function syncEntryFromAnilist(s) {
+  const media = await fetchAnilistMedia(s.anilist_id);
+  if (!media) return;
+  s.title = media.title.english || media.title.romaji || s.title;
+  s.synopsis = media.description?.replace(/<[^>]*>/g,'') || s.synopsis;
+  s.poster_url = media.coverImage?.extraLarge || media.coverImage?.large || s.poster_url;
+  s.genres = media.genres?.length ? media.genres : s.genres;
+  s.year = media.startDate?.year?.toString() || s.year;
+  const totalEps = media.episodes || 0;
+  if (totalEps > 0) {
+    // Merge episodes into season 1, preserving watched state
+    let sea1 = (s.seasons||[]).find(x => x.season_number === 1);
+    if (!sea1) { s.seasons = s.seasons || []; sea1 = { season_number:1, episodes:[] }; s.seasons.push(sea1); }
+    for (let i = 1; i <= totalEps; i++) {
+      const existing = sea1.episodes.find(e => e.episode_number === i);
+      if (!existing) sea1.episodes.push({ episode_number:i, title:`Episode ${i}`, synopsis:null, air_date:null, watched:false });
+    }
+    sea1.episodes.sort((a,b) => a.episode_number - b.episode_number);
+    s.total_seasons = s.seasons.length;
+  }
+}
+
+// ─── Bulk AniList Resync ───────────────────────────────────────────────────
+async function bulkResyncAnilist() {
+  const animeWithId = data.series.filter(s => s.type === 'anime' && s.anilist_id);
+  if (!animeWithId.length) {
+    showToast('No anime have an AniList ID yet. Add via the AniList search.', 'error');
+    return;
+  }
+  const statusEl = document.getElementById('anilist-sync-status');
+  statusEl.textContent = `Syncing 0/${animeWithId.length}…`;
+  let done = 0;
+  for (const s of animeWithId) {
+    await syncEntryFromAnilist(s);
+    done++;
+    statusEl.textContent = `Syncing ${done}/${animeWithId.length}…`;
+    await new Promise(r => setTimeout(r, 600)); // AniList rate limit: ~90 req/min
+  }
+  saveToDrive();
+  renderGrid();
+  statusEl.textContent = `✓ Synced ${done} anime entries`;
+  showToast(`Synced ${done} anime entries`, 'success');
+}
+
+// ─── AniList Account Import ────────────────────────────────────────────────
+function startAnilistImport() {
+  anilistImportItems = []; anilistImportFilter = 'all';
+  document.getElementById('anilist-import-step-auth').classList.remove('hidden');
+  document.getElementById('anilist-import-step-preview').classList.add('hidden');
+  document.getElementById('anilist-username').value = '';
+  document.getElementById('anilist-import-modal').classList.remove('hidden');
+}
+
+async function fetchAnilistLists() {
+  const username = document.getElementById('anilist-username').value.trim();
+  if (!username) { showToast('Enter your AniList username', 'error'); return; }
+  showToast('Fetching your AniList…');
+  const query = `
+    query ($username: String) {
+      MediaListCollection(userName: $username, type: ANIME) {
+        lists {
+          name status
+          entries {
+            status progress
+            media {
+              id title { romaji english } episodes genres
+              coverImage { large } startDate { year }
+              description(asHtml: false) averageScore
+            }
+          }
+        }
+      }
+    }`;
+  try {
+    const res = await fetch('https://graphql.anilist.co', {
+      method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json'},
+      body: JSON.stringify({ query, variables: { username } })
+    });
+    const json = await res.json();
+    if (json.errors) { showToast('User not found or list is private', 'error'); return; }
+    const lists = json.data?.MediaListCollection?.lists || [];
+    anilistImportItems = [];
+    lists.forEach(list => {
+      list.entries.forEach(entry => {
+        anilistImportItems.push({ ...entry.media, _anilist_status: entry.status, _progress: entry.progress });
+      });
+    });
+    renderAnilistPreview();
+    document.getElementById('anilist-import-step-auth').classList.add('hidden');
+    document.getElementById('anilist-import-step-preview').classList.remove('hidden');
+    showToast(`Found ${anilistImportItems.length} anime`, 'success');
+  } catch(e) {
+    showToast('AniList fetch failed', 'error');
+    console.error(e);
+  }
+}
+
+const ANILIST_STATUS_MAP = { CURRENT:'Watching', COMPLETED:'Completed', PLANNING:'Plan to Watch', PAUSED:'Paused', DROPPED:'Dropped', REPEATING:'Watching' };
+
+function renderAnilistPreview() {
+  const inLib = item => data.series.some(s => String(s.anilist_id) === String(item.id));
+  let filtered = anilistImportItems.filter(item => {
+    if (anilistImportFilter === 'new') return !inLib(item);
+    if (['CURRENT','COMPLETED','PLANNING'].includes(anilistImportFilter)) return item._anilist_status === anilistImportFilter;
+    return true;
+  });
+  const newCount = anilistImportItems.filter(i => !inLib(i)).length;
+  document.getElementById('anilist-import-summary').innerHTML =
+    `Found <strong style="color:var(--text)">${anilistImportItems.length}</strong> anime — <strong style="color:var(--watching)">${newCount} new</strong>`;
+  document.getElementById('anilist-import-confirm-btn').textContent = `Import ${newCount} New Anime`;
+  const list = document.getElementById('anilist-import-list');
+  if (!filtered.length) { list.innerHTML='<div style="padding:20px;text-align:center;color:var(--muted);">Nothing to show</div>'; return; }
+  list.innerHTML = filtered.map(item => {
+    const title = item.title?.english || item.title?.romaji || 'Untitled';
+    const year = item.startDate?.year || '—';
+    const already = inLib(item);
+    const status = ANILIST_STATUS_MAP[item._anilist_status] || item._anilist_status;
+    return `<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--border);${already?'opacity:0.45':''}">
+      ${item.coverImage?.large?`<img style="width:32px;height:46px;object-fit:cover;border-radius:5px;flex-shrink:0;" src="${item.coverImage.large}" loading="lazy">`:`<div style="width:32px;height:46px;border-radius:5px;background:var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:14px;">⛩</div>`}
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${title}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px;">${year} · ${status}${item._progress?` · Ep ${item._progress}`:''}</div>
+      </div>
+      ${already?'<span style="font-size:9px;font-weight:700;padding:1px 6px;border-radius:20px;background:rgba(34,211,165,0.12);color:var(--watching);">✓ In Library</span>':''}
+    </div>`;
+  }).join('');
+}
+
+function setAnilistFilter(filter, btn) {
+  anilistImportFilter = filter;
+  document.querySelectorAll('.anilist-filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderAnilistPreview();
+}
+
+async function confirmAnilistImport() {
+  const btn = document.getElementById('anilist-import-confirm-btn');
+  btn.disabled = true; btn.textContent = 'Importing…';
+  const inLib = item => data.series.some(s => String(s.anilist_id) === String(item.id));
+  const toImport = anilistImportItems.filter(i => !inLib(i));
+  let added = 0;
+  for (const item of toImport) {
+    const title = item.title?.english || item.title?.romaji || 'Untitled';
+    const status = ANILIST_STATUS_MAP[item._anilist_status] || 'Plan to Watch';
+    const totalEps = item.episodes || 0;
+    const watchedEps = Math.min(item._progress || 0, totalEps);
+    const episodes = Array.from({length: totalEps}, (_,i) => ({
+      episode_number: i+1, title:`Episode ${i+1}`, synopsis:null, air_date:null,
+      watched: i < watchedEps
+    }));
+    const entry = {
+      id: crypto.randomUUID(), type:'anime', title, status,
+      genres: item.genres || [],
+      synopsis: item.description?.replace(/<[^>]*>/g,'') || '',
+      poster_url: item.coverImage?.large || '',
+      tmdb_id: null, anilist_id: String(item.id),
+      year: item.startDate?.year?.toString() || null,
+      rating: item.averageScore ? Math.round(item.averageScore/20) : null,
+      streaming_platforms: [], cast: [],
+      seasons: totalEps > 0 ? [{ season_number:1, episodes }] : [],
+      total_seasons: totalEps > 0 ? 1 : null
+    };
+    data.series.push(entry);
+    added++;
+  }
+  closeModal('anilist-import-modal');
+  updateCounts(); renderGrid(); saveToDrive();
+  showToast(`Imported ${added} anime from AniList`, 'success');
+  btn.disabled = false;
+}
 </script>
 </body>
 </html>
