@@ -374,7 +374,7 @@
       <div class="divider"></div>
       <div class="nav-section">Actions</div>
       <div class="nav-item" onclick="openAddModal('tmdb')">
-        <span>🔍</span> Search TMDB
+        <span>🔍</span> Search
       </div>
       <div class="nav-item" onclick="openAddModal('manual')">
         <span>✏️</span> Add Manually
@@ -586,8 +586,16 @@
     <!-- Manual/edit tab -->
     <div id="manual-tab" class="hidden">
       <div class="form-group">
+        <label class="form-label">Type</label>
+        <div style="display:flex;gap:6px;">
+          <div class="type-pill active-tv" id="mtype-tv" data-mtype="tv" onclick="setManualType('tv')">📺 TV</div>
+          <div class="type-pill" id="mtype-anime" data-mtype="anime" onclick="setManualType('anime')">⛩ Anime</div>
+          <div class="type-pill" id="mtype-movie" data-mtype="movie" onclick="setManualType('movie')">🎬 Movie</div>
+        </div>
+      </div>
+      <div class="form-group">
         <label class="form-label">Title *</label>
-        <input class="form-input" id="m-title" placeholder="Series title">
+        <input class="form-input" id="m-title" placeholder="Title">
       </div>
       <div class="form-row">
         <div class="form-group">
@@ -1384,12 +1392,25 @@ function updateCounts() {
 }
 
 // ─── Add/Edit Modal ───────────────────────────────────────────────────────
+function setManualType(type) {
+  document.querySelectorAll('[data-mtype]').forEach(el => {
+    const t = el.dataset.mtype;
+    el.className = 'type-pill' + (t === type ? ` active-${t}` : '');
+  });
+  // Hide/show seasons field for movies
+  const seasonsRow = document.getElementById('m-seasons')?.closest('.form-group');
+  if (seasonsRow) seasonsRow.style.display = type === 'movie' ? 'none' : '';
+}
+
 function openAddModal(tab) {
   editingSeriesId = null;
-  document.getElementById('add-modal-title').textContent = 'Add Series';
-  document.getElementById('save-series-btn').textContent = 'Add Series';
+  document.getElementById('add-modal-title').textContent = 'Add to Library';
+  document.getElementById('save-series-btn').textContent = 'Add to Library';
   resetManualForm();
+  setManualType('tv'); // default
   switchTab(tab || 'tmdb');
+  // Reset search source to TMDB
+  setSearchSource('tmdb');
   document.getElementById('add-modal').classList.remove('hidden');
 }
 
@@ -1397,10 +1418,11 @@ function openEditModal() {
   const s = data.series.find(x => x.id === currentSeriesId);
   if (!s) return;
   editingSeriesId = s.id;
-  document.getElementById('add-modal-title').textContent = 'Edit Series';
+  document.getElementById('add-modal-title').textContent = 'Edit Entry';
   document.getElementById('save-series-btn').textContent = 'Save Changes';
   switchTab('manual');
   document.getElementById('back-to-tmdb-btn').classList.add('hidden');
+  setManualType(s.type || 'tv');
 
   document.getElementById('m-title').value = s.title;
   document.getElementById('m-status').value = s.status;
@@ -1512,6 +1534,7 @@ function saveSeries() {
   }
 
   const seriesData = {
+    type: document.querySelector('[data-mtype].active-tv, [data-mtype].active-anime, [data-mtype].active-movie')?.dataset.mtype || 'tv',
     title,
     status: document.getElementById('m-status').value,
     total_seasons: parseInt(document.getElementById('m-seasons').value) || seasons.length || null,
@@ -1609,6 +1632,7 @@ async function selectTMDB(tmdbId) {
 
     // Prefill manual form
     switchTab('manual');
+    setManualType('tv'); // default for TMDB TV results; user can switch to Anime if needed
     document.getElementById('m-title').value = s.name;
     document.getElementById('m-synopsis').value = s.overview || '';
     document.getElementById('m-poster').value = s.poster_path ? `https://image.tmdb.org/t/p/w500${s.poster_path}` : '';
@@ -2423,6 +2447,7 @@ async function selectAnilist(anilistId) {
   if (!mediaData) { showToast('AniList fetch failed', 'error'); return; }
   const seasons = buildSeasonsFromAnilist(mediaData);
   switchTab('manual');
+  setManualType('anime');
   const title = mediaData.title.english || mediaData.title.romaji || 'Untitled';
   document.getElementById('m-title').value = title;
   document.getElementById('m-synopsis').value = mediaData.description?.replace(/<[^>]*>/g,'') || '';
@@ -2548,117 +2573,151 @@ async function bulkResyncAnilist() {
 }
 
 // ─── Jikan (MAL) episode enrichment ───────────────────────────────────────
-// State for pending MAL picker (when called from within a sync, not the form flow)
 let _malPickerPendingSeriesId = null;
-let _malPickerPendingFormSeasons = null; // non-null = we're in form flow
+let _malPickerPendingFormSeasons = null;
+let _malPickerQueue = []; // queue for bulk sync
+let _malPickerResolve = null; // promise resolver for async picker
 
 async function jikanSearch(title) {
   try {
-    // Jikan rate limit: max 3 req/sec. Add small delay when called in bulk.
-    const res = await fetch(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(title)}&limit=8&type=tv`);
+    await new Promise(r => setTimeout(r, 350)); // stay under Jikan rate limit
+    const res = await fetch(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(title)}&limit=10&type=tv`);
     const json = await res.json();
     return json.data || [];
-  } catch(e) { return []; }
+  } catch(e) { console.error('Jikan search error:', e); return []; }
 }
 
 async function jikanFetchEpisodes(malId) {
   const results = [];
   let page = 1, hasNext = true;
-  while (hasNext && page <= 20) { // cap at 500 episodes per page × 20 pages
+  while (hasNext && page <= 20) {
     try {
+      await new Promise(r => setTimeout(r, 400));
       const res = await fetch(`https://api.jikan.moe/v4/anime/${malId}/episodes?page=${page}`);
       const json = await res.json();
       results.push(...(json.data||[]));
       hasNext = json.pagination?.has_next_page || false;
       page++;
-      if (hasNext) await new Promise(r => setTimeout(r, 400)); // pace requests
     } catch(e) { hasNext = false; }
   }
   return results;
 }
 
-function titleSimilarity(a, b) {
-  // Simple normalised title match — strips punctuation, lowercases
-  const norm = s => s.toLowerCase().replace(/[^a-z0-9 ]/g,'').replace(/\s+/g,' ').trim();
-  const na = norm(a), nb = norm(b);
-  if (na === nb) return 1;
-  if (na.includes(nb) || nb.includes(na)) return 0.9;
-  // Count shared words
-  const wa = new Set(na.split(' ')), wb = nb.split(' ');
-  const shared = wb.filter(w => wa.has(w)).length;
-  return shared / Math.max(wa.size, wb.length);
+function titleSimilarity(query, candidate) {
+  if (!candidate) return 0;
+  const norm = s => s.toLowerCase()
+    .replace(/re:zero/gi, 'rezero')        // handle Re:ZERO specifically
+    .replace(/[^a-z0-9 ]/g, ' ')
+    .replace(/\s+/g, ' ').trim();
+  const nq = norm(query), nc = norm(candidate);
+  if (nq === nc) return 1;
+  if (nq.includes(nc) || nc.includes(nq)) return 0.85;
+  // Jaccard on words
+  const wq = new Set(nq.split(' ').filter(Boolean));
+  const wc = nc.split(' ').filter(Boolean);
+  const shared = wc.filter(w => wq.has(w)).length;
+  return shared / Math.max(wq.size, wc.length, 1);
 }
 
+function scoreJikanResults(searchTitle, results) {
+  return results.map(r => {
+    const s1 = titleSimilarity(searchTitle, r.title || '');
+    const s2 = titleSimilarity(searchTitle, r.title_english || '');
+    const s3 = titleSimilarity(searchTitle, r.title_synonyms?.join(' ') || '');
+    return { ...r, _score: Math.max(s1, s2, s3), _scores: { romaji: s1, english: s2, synonyms: s3 } };
+  }).sort((a, b) => b._score - a._score);
+}
+
+// Form flow: called after AniList select
+async function lookupJikanAndMergeForm(searchTitle, formSeasons) {
+  const results = await jikanSearch(searchTitle);
+  console.log('[Jikan search]', searchTitle, '→', results.map(r => ({ title: r.title, english: r.title_english, mal_id: r.mal_id, score: '(pending)' })));
+  if (!results.length) {
+    showToast('MAL not found — episode numbers only');
+    return;
+  }
+  const scored = scoreJikanResults(searchTitle, results);
+  console.log('[Jikan scored]', scored.map(r => ({ title: r.title, english: r.title_english, mal_id: r.mal_id, _score: r._score.toFixed(3) })));
+  const best = scored[0];
+  const clearMatch = best._score >= 0.75 && (!scored[1] || best._score - scored[1]._score > 0.15);
+  if (clearMatch) {
+    console.log('[Jikan auto-pick]', best.title, 'mal_id:', best.mal_id, 'score:', best._score.toFixed(3));
+    document.getElementById('m-mal-id').value = String(best.mal_id);
+    const jikanEps = await jikanFetchEpisodes(best.mal_id);
+    window._pendingJikanEps = jikanEps;
+    showToast(`Episode data loaded from MAL: ${jikanEps.length} episodes ✓`, 'success');
+  } else {
+    _malPickerPendingSeriesId = null;
+    _malPickerPendingFormSeasons = formSeasons;
+    showMalPicker(scored.slice(0, 8), searchTitle);
+  }
+}
+
+// Sync flow: called during entry sync
 async function jikanAutoMatch(s, searchTitle) {
-  // Called during sync — shows picker modal if needed, otherwise auto-applies
+  if (s.mal_id) {
+    // Already have it — just enrich
+    await enrichEpisodesFromJikan(s, s.mal_id);
+    return;
+  }
   const results = await jikanSearch(searchTitle);
   if (!results.length) return;
-  // Score each result
-  const scored = results.map(r => ({
-    ...r,
-    _score: titleSimilarity(searchTitle, r.title) * 0.6 +
-            titleSimilarity(searchTitle, r.title_english||'') * 0.4
-  })).sort((a,b) => b._score - a._score);
+  const scored = scoreJikanResults(searchTitle, results);
+  console.log('[Jikan sync scored for', searchTitle, ']', scored.map(r => ({ title: r.title, english: r.title_english, mal_id: r.mal_id, score: r._score.toFixed(3) })));
   const best = scored[0];
-  // Auto-pick if clearly dominant (score ≥ 0.85 and next is much lower)
-  const clearMatch = best._score >= 0.85 && (!scored[1] || best._score - scored[1]._score > 0.2);
+  const clearMatch = best._score >= 0.75 && (!scored[1] || best._score - scored[1]._score > 0.15);
   if (clearMatch) {
     s.mal_id = String(best.mal_id);
     await enrichEpisodesFromJikan(s, best.mal_id);
   } else {
-    // Show picker — store pending series id
-    _malPickerPendingSeriesId = s.id;
-    _malPickerPendingFormSeasons = null;
-    showMalPicker(scored.slice(0, 8));
+    // Queue picker — returns a promise that resolves when user picks
+    await showMalPickerAsync(s, scored.slice(0, 8), searchTitle);
   }
 }
 
-async function lookupJikanAndMergeForm(searchTitle, formSeasons) {
-  // Form flow — after AniList select, tries to enrich the season-builder rows
-  const results = await jikanSearch(searchTitle);
-  if (!results.length) { showToast('AniList data loaded. MAL not found — episode numbers only.'); return; }
-  const scored = results.map(r => ({
-    ...r,
-    _score: titleSimilarity(searchTitle, r.title) * 0.6 +
-            titleSimilarity(searchTitle, r.title_english||'') * 0.4
-  })).sort((a,b) => b._score - a._score);
-  const best = scored[0];
-  const clearMatch = best._score >= 0.85 && (!scored[1] || best._score - scored[1]._score > 0.2);
-  if (clearMatch) {
-    document.getElementById('m-mal-id').value = String(best.mal_id);
-    const jikanEps = await jikanFetchEpisodes(best.mal_id);
-    mergeJikanIntoFormSeasons(jikanEps);
-    showToast('Episode titles and dates loaded from MAL ✓', 'success');
-  } else {
-    _malPickerPendingSeriesId = null;
-    _malPickerPendingFormSeasons = formSeasons;
-    showMalPicker(scored.slice(0, 8));
-  }
-}
-
-function showMalPicker(results) {
-  document.getElementById('mal-picker-list').innerHTML = results.map(r => `
-    <div class="mal-pick-item" onclick="confirmMalPick(${r.mal_id}, '${(r.title||'').replace(/'/g,"\\'")}')">
-      ${r.images?.jpg?.image_url
-        ? `<img class="mal-pick-thumb" src="${r.images.jpg.image_url}" loading="lazy">`
-        : `<div class="mal-pick-thumb-ph">⛩</div>`}
-      <div>
-        <div class="mal-pick-title">${r.title}${r.title_english && r.title_english !== r.title ? `<span style="color:var(--muted);font-weight:400;"> · ${r.title_english}</span>` : ''}</div>
-        <div class="mal-pick-meta">${r.aired?.prop?.from?.year||'?'} · ${r.episodes||'?'} eps · Score ${r.score||'?'}</div>
-      </div>
-    </div>`).join('');
+// Synchronous picker for form flow
+function showMalPicker(results, searchTitle) {
+  _renderMalPickerList(results, searchTitle);
   document.getElementById('mal-picker-modal').classList.remove('hidden');
 }
 
-async function confirmMalPick(malId, title) {
+// Async picker for sync flow — pauses the sync loop until user picks
+function showMalPickerAsync(s, results, searchTitle) {
+  return new Promise(resolve => {
+    _malPickerPendingSeriesId = s.id;
+    _malPickerPendingFormSeasons = null;
+    _malPickerResolve = resolve;
+    _renderMalPickerList(results, searchTitle);
+    document.getElementById('mal-picker-modal').classList.remove('hidden');
+  });
+}
+
+function _renderMalPickerList(results, searchTitle) {
+  document.getElementById('mal-picker-list').innerHTML = `
+    <div style="padding:10px 14px;background:var(--surface);border-bottom:1px solid var(--border);font-size:11px;color:var(--muted);">
+      Searching for: <strong style="color:var(--text);">${searchTitle}</strong> — scores below show title match confidence
+    </div>
+    ${results.map(r => `
+    <div class="mal-pick-item" onclick="confirmMalPick(${r.mal_id})">
+      ${r.images?.jpg?.image_url
+        ? `<img class="mal-pick-thumb" src="${r.images.jpg.image_url}" loading="lazy">`
+        : `<div class="mal-pick-thumb-ph">⛩</div>`}
+      <div style="flex:1;min-width:0;">
+        <div class="mal-pick-title">${r.title}${r.title_english && r.title_english !== r.title ? `<span style="color:var(--muted);font-weight:400;font-size:11px;"> · ${r.title_english}</span>` : ''}</div>
+        <div class="mal-pick-meta">${r.aired?.prop?.from?.year||'?'} · ${r.episodes||'?'} eps · Score ${r.score||'?'} · Match ${(r._score*100).toFixed(0)}%</div>
+      </div>
+    </div>`).join('')}`;
+}
+
+async function confirmMalPick(malId) {
   closeModal('mal-picker-modal');
-  showToast(`Fetching episodes from MAL…`);
+  showToast('Fetching episodes from MAL…');
   if (_malPickerPendingFormSeasons !== null) {
     // Form flow
     document.getElementById('m-mal-id').value = String(malId);
     const jikanEps = await jikanFetchEpisodes(malId);
-    mergeJikanIntoFormSeasons(jikanEps);
-    showToast('Episode titles and dates loaded from MAL ✓', 'success');
+    window._pendingJikanEps = jikanEps;
+    showToast(`${jikanEps.length} episodes loaded from MAL ✓`, 'success');
     _malPickerPendingFormSeasons = null;
   } else if (_malPickerPendingSeriesId) {
     // Sync flow
@@ -2671,6 +2730,7 @@ async function confirmMalPick(malId, title) {
       showToast('Episodes enriched from MAL ✓', 'success');
     }
     _malPickerPendingSeriesId = null;
+    if (_malPickerResolve) { _malPickerResolve(); _malPickerResolve = null; }
   }
 }
 
@@ -2678,28 +2738,25 @@ function skipMalPicker() {
   closeModal('mal-picker-modal');
   _malPickerPendingSeriesId = null;
   _malPickerPendingFormSeasons = null;
+  if (_malPickerResolve) { _malPickerResolve(); _malPickerResolve = null; }
   showToast('Skipped MAL — using episode numbers only');
 }
 
 async function enrichEpisodesFromJikan(s, malId) {
   const jikanEps = await jikanFetchEpisodes(malId);
   if (!jikanEps.length) return;
-  // Merge into all seasons (Jikan episodes are flat, sequential)
-  // Most AniList-sourced anime have one season per entry, so ep numbers match directly
+  console.log('[Jikan episodes]', malId, '→', jikanEps.length, 'episodes, first:', jikanEps[0]);
+  // jikanEps are ordered sequentially — use array index+1 as episode number
+  // jep.mal_id is the MAL episode ID (not useful), the position is what matters
   const allEps = (s.seasons||[]).flatMap(sea => sea.episodes);
-  jikanEps.forEach(jep => {
-    const ep = allEps.find(e => e.episode_number === jep.mal_id); // Jikan ep.mal_id = episode number
+  jikanEps.forEach((jep, idx) => {
+    const epNum = idx + 1; // sequential position = episode number
+    const ep = allEps.find(e => e.episode_number === epNum);
     if (ep) {
-      if (jep.title && jep.title !== `Episode ${ep.episode_number}`) ep.title = jep.title;
+      if (jep.title && !jep.title.match(/^Episode \d+$/i)) ep.title = jep.title;
       if (jep.aired) ep.air_date = jep.aired.split('T')[0];
     }
   });
-}
-
-function mergeJikanIntoFormSeasons(jikanEps) {
-  // Update the in-DOM season-builder episode rows (we can't easily; just store for saveSeries)
-  // Instead, store the enriched episode data in a temp variable picked up by saveSeries
-  window._pendingJikanEps = jikanEps;
 }
 
 // ─── AniList Account Import ────────────────────────────────────────────────
