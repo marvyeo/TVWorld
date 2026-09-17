@@ -253,6 +253,19 @@
   .type-btn { flex: 1; padding: 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--muted); font-size: 12px; font-weight: 600; cursor: pointer; text-align: center; transition: all 0.15s; }
   .type-btn.active { border-color: var(--accent); background: rgba(124,106,245,0.12); color: var(--accent2); }
 
+  /* TMDB Import */
+  .tmdb-filter-btn.active { background: rgba(124,106,245,0.15); border-color: var(--accent); color: var(--accent2); }
+  .import-item { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+  .import-item:last-child { border-bottom: none; }
+  .import-item-poster { width: 32px; height: 46px; object-fit: cover; border-radius: 5px; background: var(--border); flex-shrink: 0; }
+  .import-item-poster-ph { width: 32px; height: 46px; border-radius: 5px; background: var(--border); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 14px; color: var(--muted); }
+  .import-item-info { flex: 1; min-width: 0; }
+  .import-item-title { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .import-item-meta { font-size: 11px; color: var(--muted); margin-top: 2px; display: flex; gap: 8px; align-items: center; }
+  .import-item-source { font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 4px; background: var(--border); color: var(--muted); text-transform: uppercase; }
+  .import-already { opacity: 0.45; }
+  .import-already-badge { font-size: 9px; font-weight: 700; padding: 1px 6px; border-radius: 20px; background: rgba(34,211,165,0.12); color: var(--watching); flex-shrink: 0; }
+
   /* ─── Bottom nav (mobile only) ─── */
   #bottom-nav { display: none; }
 
@@ -529,6 +542,12 @@
         <button class="btn btn-primary btn-sm" onclick="savePlatforms()" style="margin-top:14px;">Save Platforms</button>
       </div>
       <div class="settings-section">
+        <div class="settings-section-title">TMDB Import</div>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Sign in to your TMDB account to import your watchlist, rated titles, and custom lists in one go.</p>
+        <button class="btn btn-primary btn-sm" onclick="startTmdbImport()">Import from TMDB Account</button>
+        <span style="font-size:12px;color:var(--muted);margin-left:10px;" id="tmdb-import-status"></span>
+      </div>
+      <div class="settings-section">
         <div class="settings-section-title">Data</div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;">
           <button class="btn btn-secondary btn-sm" onclick="forceSave()">💾 Force Save to Drive</button>
@@ -687,6 +706,46 @@
       <div class="divider"></div>
       <div id="ingest-summary" style="font-size:13px;color:var(--muted);margin-bottom:12px;"></div>
       <button class="btn btn-primary" onclick="confirmIngest()">Confirm Ingest</button>
+    </div>
+  </div>
+</div>
+
+<!-- TMDB Import Modal -->
+<div id="tmdb-import-modal" class="modal-overlay hidden">
+  <div class="modal modal-lg">
+    <div class="modal-title">Import from TMDB</div>
+    <button class="modal-close" onclick="closeModal('tmdb-import-modal')">✕</button>
+
+    <!-- Step 1: Auth -->
+    <div id="tmdb-import-step-auth">
+      <p style="color:var(--muted);font-size:13px;line-height:1.6;margin-bottom:20px;">
+        This will open TMDB in a new tab for you to approve access. Come back here once you've approved — the import will continue automatically.
+      </p>
+      <button class="btn btn-primary" onclick="tmdbAuthStep()">Open TMDB to Approve Access</button>
+      <div style="margin-top:16px;" id="tmdb-auth-waiting" class="hidden">
+        <p style="font-size:13px;color:var(--paused);">⏳ Waiting for approval… Once you've approved on TMDB, click below.</p>
+        <button class="btn btn-secondary" style="margin-top:10px;" onclick="tmdbFetchAfterAuth()">I've Approved — Continue</button>
+      </div>
+    </div>
+
+    <!-- Step 2: Preview -->
+    <div id="tmdb-import-step-preview" class="hidden">
+      <div id="tmdb-import-summary" style="font-size:13px;color:var(--muted);margin-bottom:16px;"></div>
+
+      <!-- Filter bar -->
+      <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+        <button class="btn btn-ghost btn-sm tmdb-filter-btn active" data-filter="all" onclick="setImportFilter('all',this)">All</button>
+        <button class="btn btn-ghost btn-sm tmdb-filter-btn" data-filter="new" onclick="setImportFilter('new',this)">New only</button>
+        <button class="btn btn-ghost btn-sm tmdb-filter-btn" data-filter="movie" onclick="setImportFilter('movie',this)">Movies</button>
+        <button class="btn btn-ghost btn-sm tmdb-filter-btn" data-filter="tv" onclick="setImportFilter('tv',this)">TV</button>
+      </div>
+
+      <div id="tmdb-import-list" style="max-height:380px;overflow-y:auto;border:1px solid var(--border);border-radius:12px;"></div>
+
+      <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end;">
+        <button class="btn btn-ghost" onclick="closeModal('tmdb-import-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="confirmTmdbImport()" id="tmdb-import-confirm-btn">Import All</button>
+      </div>
     </div>
   </div>
 </div>
@@ -1876,11 +1935,248 @@ if (uploadZone) {
   });
 }
 
-['add-modal','ingest-modal','person-modal'].forEach(id => {
+['add-modal','ingest-modal','person-modal','tmdb-import-modal'].forEach(id => {
   document.getElementById(id).addEventListener('click', function(e) {
     if (e.target === this) closeModal(id);
   });
 });
+
+// ─── TMDB Account Import ───────────────────────────────────────────────────
+let tmdbRequestToken = null;
+let tmdbSessionId = null;
+let tmdbImportItems = [];   // full fetched list
+let tmdbImportFilter = 'all';
+
+function startTmdbImport() {
+  const key = data.settings.tmdb_api_key;
+  if (!key) { showToast('Add your TMDB API key in Settings first', 'error'); return; }
+  tmdbRequestToken = null;
+  tmdbSessionId = null;
+  tmdbImportItems = [];
+  document.getElementById('tmdb-import-step-auth').classList.remove('hidden');
+  document.getElementById('tmdb-import-step-preview').classList.add('hidden');
+  document.getElementById('tmdb-auth-waiting').classList.add('hidden');
+  document.getElementById('tmdb-import-modal').classList.remove('hidden');
+}
+
+async function tmdbAuthStep() {
+  const key = data.settings.tmdb_api_key;
+  try {
+    showToast('Getting request token…');
+    const res = await fetch(`https://api.themoviedb.org/3/authentication/token/new?api_key=${key}`);
+    const json = await res.json();
+    if (!json.success) { showToast('Could not get token from TMDB', 'error'); return; }
+    tmdbRequestToken = json.request_token;
+    // Open TMDB approval page
+    window.open(`https://www.themoviedb.org/authenticate/${tmdbRequestToken}`, '_blank');
+    document.getElementById('tmdb-auth-waiting').classList.remove('hidden');
+  } catch(e) {
+    showToast('TMDB auth failed', 'error');
+    console.error(e);
+  }
+}
+
+async function tmdbFetchAfterAuth() {
+  const key = data.settings.tmdb_api_key;
+  if (!tmdbRequestToken) { showToast('No token — start again', 'error'); return; }
+  showToast('Creating session…');
+  try {
+    // Exchange approved token for session
+    const sessRes = await fetch(`https://api.themoviedb.org/3/authentication/session/new?api_key=${key}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ request_token: tmdbRequestToken })
+    });
+    const sessJson = await sessRes.json();
+    if (!sessJson.success) {
+      showToast('Session failed — did you approve on TMDB?', 'error'); return;
+    }
+    tmdbSessionId = sessJson.session_id;
+
+    // Get account details
+    const acctRes = await fetch(`https://api.themoviedb.org/3/account?api_key=${key}&session_id=${tmdbSessionId}`);
+    const acct = await acctRes.json();
+    const accountId = acct.id;
+    showToast('Fetching your lists…');
+
+    // Fetch all sources in parallel
+    const [
+      movieWatchlist, tvWatchlist,
+      movieRated, tvRated,
+      movieFavs, tvFavs,
+      customLists
+    ] = await Promise.all([
+      fetchAllPages(`https://api.themoviedb.org/3/account/${accountId}/watchlist/movies?api_key=${key}&session_id=${tmdbSessionId}&sort_by=created_at.desc`),
+      fetchAllPages(`https://api.themoviedb.org/3/account/${accountId}/watchlist/tv?api_key=${key}&session_id=${tmdbSessionId}&sort_by=created_at.desc`),
+      fetchAllPages(`https://api.themoviedb.org/3/account/${accountId}/rated/movies?api_key=${key}&session_id=${tmdbSessionId}&sort_by=created_at.desc`),
+      fetchAllPages(`https://api.themoviedb.org/3/account/${accountId}/rated/tv?api_key=${key}&session_id=${tmdbSessionId}&sort_by=created_at.desc`),
+      fetchAllPages(`https://api.themoviedb.org/3/account/${accountId}/favorite/movies?api_key=${key}&session_id=${tmdbSessionId}&sort_by=created_at.desc`),
+      fetchAllPages(`https://api.themoviedb.org/3/account/${accountId}/favorite/tv?api_key=${key}&session_id=${tmdbSessionId}&sort_by=created_at.desc`),
+      fetchAllPages(`https://api.themoviedb.org/3/account/${accountId}/lists?api_key=${key}&session_id=${tmdbSessionId}`)
+    ]);
+
+    // Fetch items from each custom list
+    const customListItems = [];
+    for (const list of customLists) {
+      const items = await fetchAllPages(`https://api.themoviedb.org/3/list/${list.id}?api_key=${key}`, 'items');
+      items.forEach(item => {
+        item._source = `List: ${list.name}`;
+        item._media_type = item.media_type || 'movie';
+        customListItems.push(item);
+      });
+    }
+
+    // Merge and dedupe by tmdb id+type
+    const seen = new Set();
+    const all = [];
+
+    const tag = (items, source, type) => items.forEach(item => {
+      const key = `${type}-${item.id}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      all.push({ ...item, _source: source, _media_type: type });
+    });
+
+    tag(movieWatchlist,  'Watchlist',   'movie');
+    tag(tvWatchlist,     'Watchlist',   'tv');
+    tag(movieFavs,       'Favourites',  'movie');
+    tag(tvFavs,          'Favourites',  'tv');
+    tag(movieRated,      'Rated',       'movie');
+    tag(tvRated,         'Rated',       'tv');
+    customListItems.forEach(item => {
+      const mt = item._media_type === 'tv' ? 'tv' : 'movie';
+      const k = `${mt}-${item.id}`;
+      if (seen.has(k)) return;
+      seen.add(k);
+      all.push({ ...item, _media_type: mt });
+    });
+
+    tmdbImportItems = all;
+    renderImportPreview();
+    document.getElementById('tmdb-import-step-auth').classList.add('hidden');
+    document.getElementById('tmdb-import-step-preview').classList.remove('hidden');
+    showToast(`Found ${all.length} titles`, 'success');
+  } catch(e) {
+    showToast('Fetch failed', 'error');
+    console.error(e);
+  }
+}
+
+async function fetchAllPages(url, itemsKey = 'results') {
+  const results = [];
+  let page = 1, totalPages = 1;
+  do {
+    const sep = url.includes('?') ? '&' : '?';
+    const res = await fetch(`${url}${sep}page=${page}`);
+    const json = await res.json();
+    const items = json[itemsKey] || [];
+    results.push(...items);
+    totalPages = json.total_pages || 1;
+    page++;
+  } while (page <= Math.min(totalPages, 10)); // cap at 10 pages (200 items) per source
+  return results;
+}
+
+function renderImportPreview() {
+  const inLibrary = (item) => data.series.some(s => String(s.tmdb_id) === String(item.id) && (s.type === item._media_type || (s.type === 'anime' && item._media_type === 'tv')));
+
+  let filtered = tmdbImportItems.filter(item => {
+    if (tmdbImportFilter === 'new') return !inLibrary(item);
+    if (tmdbImportFilter === 'movie') return item._media_type === 'movie';
+    if (tmdbImportFilter === 'tv') return item._media_type === 'tv';
+    return true;
+  });
+
+  const newCount = tmdbImportItems.filter(i => !inLibrary(i)).length;
+  const alreadyCount = tmdbImportItems.length - newCount;
+  document.getElementById('tmdb-import-summary').innerHTML =
+    `Found <strong style="color:var(--text)">${tmdbImportItems.length}</strong> titles — <strong style="color:var(--watching)">${newCount} new</strong>, <span style="color:var(--muted)">${alreadyCount} already in library</span>`;
+  document.getElementById('tmdb-import-confirm-btn').textContent = `Import ${newCount} New Titles`;
+
+  const list = document.getElementById('tmdb-import-list');
+  if (filtered.length === 0) {
+    list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted);font-size:13px;">Nothing to show</div>';
+    return;
+  }
+
+  list.innerHTML = filtered.map(item => {
+    const title = item.title || item.name || 'Untitled';
+    const year = (item.release_date || item.first_air_date || '').split('-')[0];
+    const already = inLibrary(item);
+    const typeIcon = item._media_type === 'movie' ? '🎬' : '📺';
+    return `<div class="import-item ${already ? 'import-already' : ''}">
+      ${item.poster_path
+        ? `<img class="import-item-poster" src="https://image.tmdb.org/t/p/w92${item.poster_path}" loading="lazy">`
+        : `<div class="import-item-poster-ph">${typeIcon}</div>`}
+      <div class="import-item-info">
+        <div class="import-item-title">${title}</div>
+        <div class="import-item-meta">
+          <span>${typeIcon} ${year || '—'}</span>
+          <span class="import-item-source">${item._source}</span>
+          ${item.rating ? `<span>⭐ ${item.rating}/10</span>` : ''}
+        </div>
+      </div>
+      ${already ? '<span class="import-already-badge">✓ In Library</span>' : ''}
+    </div>`;
+  }).join('');
+}
+
+function setImportFilter(filter, btn) {
+  tmdbImportFilter = filter;
+  document.querySelectorAll('.tmdb-filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderImportPreview();
+}
+
+async function confirmTmdbImport() {
+  const key = data.settings.tmdb_api_key;
+  const btn = document.getElementById('tmdb-import-confirm-btn');
+  btn.disabled = true;
+  btn.textContent = 'Importing…';
+
+  const inLibrary = (item) => data.series.some(s => String(s.tmdb_id) === String(item.id));
+  const toImport = tmdbImportItems.filter(i => !inLibrary(i));
+
+  let added = 0;
+  for (const item of toImport) {
+    const isMovie = item._media_type === 'movie';
+    const title = item.title || item.name || 'Untitled';
+
+    // Map TMDB rating (0-10) to our 1-5 star scale
+    const rating = item.rating ? Math.round(item.rating / 2) : null;
+
+    const entry = {
+      id: crypto.randomUUID(),
+      type: isMovie ? 'movie' : 'tv',
+      title,
+      status: 'Plan to Watch',
+      genres: [],
+      synopsis: item.overview || '',
+      poster_url: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : '',
+      tmdb_id: String(item.id),
+      year: isMovie ? (item.release_date || null) : ((item.first_air_date || '').split('-')[0] || null),
+      runtime: null,
+      rating,
+      streaming_platforms: [],
+      cast: [],
+      seasons: []
+    };
+
+    data.series.push(entry);
+    added++;
+
+    // Fetch providers in background (no await — fire and forget to keep it fast)
+    if (key) fetchProvidersAndCast(entry.id, entry.tmdb_id, entry.type);
+  }
+
+  closeModal('tmdb-import-modal');
+  updateCounts();
+  renderGrid();
+  saveToDrive();
+  document.getElementById('tmdb-import-status').textContent = `✓ Imported ${added} titles`;
+  showToast(`Imported ${added} titles`, 'success');
+  btn.disabled = false;
+}
 </script>
 </body>
 </html>
