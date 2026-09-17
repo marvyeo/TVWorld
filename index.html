@@ -1661,71 +1661,90 @@ async function refreshFromTMDB() {
   try {
     const seriesRes = await fetch(`https://api.themoviedb.org/3/tv/${s.tmdb_id}?api_key=${key}`);
     const meta = await seriesRes.json();
-    const totalSeasons = meta.number_of_seasons || s.total_seasons || 1;
+    const tmdbSeasonCount = meta.number_of_seasons || 1;
 
+    // Fetch all TMDB seasons
     const seasonFetches = [];
-    for (let i = 1; i <= Math.min(totalSeasons, 50); i++) {
+    for (let i = 1; i <= Math.min(tmdbSeasonCount, 50); i++) {
       seasonFetches.push(fetch(`https://api.themoviedb.org/3/tv/${s.tmdb_id}/season/${i}?api_key=${key}`).then(r => r.json()));
     }
-    const seasonData = await Promise.all(seasonFetches);
+    const tmdbSeasonData = await Promise.all(seasonFetches);
 
-    // Merge: update metadata + episode titles/synopsis/airdates, preserve watched state
-    s.title = meta.name || s.title;
-    s.synopsis = meta.overview || s.synopsis;
-    s.total_seasons = meta.number_of_seasons || s.total_seasons;
-    s.genres = (meta.genres||[]).map(g => g.name).length ? (meta.genres||[]).map(g => g.name) : s.genres;
-    s.poster_url = meta.poster_path ? `https://image.tmdb.org/t/p/w500${meta.poster_path}` : s.poster_url;
+    // Update metadata (but preserve title/genres from AniList for anime)
+    if (s.type !== 'anime') s.title = meta.name || s.title;
+    s.synopsis = s.synopsis || meta.overview || '';
+    if (s.type !== 'anime') s.genres = (meta.genres||[]).map(g=>g.name).length ? (meta.genres||[]).map(g=>g.name) : s.genres;
+    s.poster_url = s.poster_url || (meta.poster_path ? `https://image.tmdb.org/t/p/w500${meta.poster_path}` : '');
 
-    seasonData.forEach(sea => {
-      if (!sea.season_number) return;
-      let exSea = (s.seasons||[]).find(x => x.season_number === sea.season_number);
-      if (!exSea) {
-        s.seasons = s.seasons || [];
-        s.seasons.push({
-          season_number: sea.season_number,
-          episodes: (sea.episodes||[]).map(ep => ({
-            episode_number: ep.episode_number,
-            title: ep.name || `Episode ${ep.episode_number}`,
-            synopsis: ep.overview || null,
-            air_date: ep.air_date || null,
-            watched: false
-          }))
+    const isAnime = s.type === 'anime';
+    const ourSeasonCount = (s.seasons || []).length;
+
+    if (!isAnime || tmdbSeasonCount >= ourSeasonCount) {
+      // Non-anime or TMDB has enough seasons: merge by season number directly
+      tmdbSeasonData.forEach(sea => {
+        if (!sea.season_number) return;
+        let exSea = (s.seasons||[]).find(x => x.season_number === sea.season_number);
+        if (!exSea) {
+          s.seasons = s.seasons || [];
+          s.seasons.push({ season_number: sea.season_number, episodes: (sea.episodes||[]).map(ep => ({
+            episode_number: ep.episode_number, title: ep.name || `Episode ${ep.episode_number}`,
+            synopsis: ep.overview || null, air_date: ep.air_date || null, watched: false
+          }))});
+        } else {
+          (sea.episodes||[]).forEach(ep => {
+            const exEp = exSea.episodes.find(e => e.episode_number === ep.episode_number);
+            if (!exEp) {
+              exSea.episodes.push({ episode_number: ep.episode_number, title: ep.name || `Episode ${ep.episode_number}`,
+                synopsis: ep.overview || null, air_date: ep.air_date || null, watched: false });
+            } else {
+              exEp.title = ep.name || exEp.title;
+              exEp.synopsis = ep.overview || exEp.synopsis;
+              exEp.air_date = ep.air_date || exEp.air_date;
+            }
+          });
+          exSea.episodes.sort((a,b) => a.episode_number - b.episode_number);
+        }
+      });
+      if (!isAnime) s.total_seasons = meta.number_of_seasons || s.total_seasons;
+    } else {
+      // Anime with more AniList seasons than TMDB seasons:
+      // Flatten all TMDB episodes into one list, then distribute across our seasons sequentially
+      const allTmdbEps = tmdbSeasonData.flatMap(sea => sea.episodes || [])
+        .sort((a, b) => {
+          // Sort by season then episode
+          const sa = tmdbSeasonData.findIndex(x => x.season_number === a.season_number);
+          const sb2 = tmdbSeasonData.findIndex(x => x.season_number === b.season_number);
+          return sa !== sb2 ? sa - sb2 : a.episode_number - b.episode_number;
         });
-      } else {
-        (sea.episodes||[]).forEach(ep => {
-          const exEp = exSea.episodes.find(e => e.episode_number === ep.episode_number);
-          if (!exEp) {
-            exSea.episodes.push({
-              episode_number: ep.episode_number,
-              title: ep.name || `Episode ${ep.episode_number}`,
-              synopsis: ep.overview || null,
-              air_date: ep.air_date || null,
-              watched: false
-            });
-          } else {
-            exEp.title = ep.name || exEp.title;
-            exEp.synopsis = ep.overview || exEp.synopsis;
-            exEp.air_date = ep.air_date || exEp.air_date;
-            // preserve exEp.watched
+
+      console.log(`[TMDB refresh] anime mode: ${allTmdbEps.length} TMDB eps across ${ourSeasonCount} AniList seasons`);
+
+      let tmdbIdx = 0;
+      for (const sea of (s.seasons || [])) {
+        for (const ep of sea.episodes) {
+          if (tmdbIdx < allTmdbEps.length) {
+            const tmdbEp = allTmdbEps[tmdbIdx++];
+            ep.title = tmdbEp.name || ep.title;
+            ep.synopsis = tmdbEp.overview || ep.synopsis;
+            ep.air_date = tmdbEp.air_date || ep.air_date;
           }
-        });
-        exSea.episodes.sort((a,b) => a.episode_number - b.episode_number);
+        }
       }
-    });
+    }
     s.seasons.sort((a,b) => a.season_number - b.season_number);
 
-    // Refresh providers too
+    // Refresh providers + cast
     await fetchProviders(s.id, s.tmdb_id);
 
     saveToDrive();
-    openDetail(s.id); // re-render detail view
-    showToast('Refreshed from TMDB', 'success');
+    openDetail(s.id);
+    showToast('Refreshed from TMDB ✓', 'success');
   } catch(e) {
     showToast('Refresh failed', 'error');
     console.error(e);
   } finally {
     const btn = document.getElementById('refresh-tmdb-btn');
-    if (btn) { btn.textContent = '↻ Refresh TMDB'; btn.disabled = false; }
+    if (btn) { btn.textContent = '↻ TMDB'; btn.disabled = false; }
   }
 }
 
@@ -2496,11 +2515,17 @@ async function selectAnilistAnime(anilistId) {
     const summary = chain.map((e, i) =>
       `S${i+1}: ${e.title.english || e.title.romaji} (${e.episodes || '?'} eps)`
     ).join(' · ');
-    showToast(`${seasons.length} seasons built — searching TMDB…`);
     console.log('[AniList chain]', summary);
+
+    // Disable save while TMDB search runs
+    const saveBtn = document.getElementById('save-series-btn');
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Searching TMDB…'; }
+    showToast(`${seasons.length} seasons built — searching TMDB…`);
 
     // 4. Auto-match TMDB
     await autoMatchTMDB(title, root.startDate?.year);
+
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Add to Library'; }
 
   } catch(e) {
     showToast('AniList fetch failed', 'error');
@@ -2673,26 +2698,33 @@ async function refreshFromAnilist() {
 
 async function syncEntryFromAnilist(s) {
   if (!s.anilist_id) return;
-  const media = await fetchAnilistMedia(s.anilist_id);
-  if (!media) return;
-  s.title = media.title.english || media.title.romaji || s.title;
-  s.synopsis = media.description?.replace(/<[^>]*>/g, '') || s.synopsis;
-  s.poster_url = media.coverImage?.extraLarge || media.coverImage?.large || s.poster_url;
-  s.genres = media.genres?.length ? media.genres : s.genres;
-  s.year = media.startDate?.year?.toString() || s.year;
-  // Ensure season 1 has the right number of episode slots (titles come from TMDB refresh)
-  const totalEps = media.episodes || 0;
-  if (totalEps > 0) {
-    let sea1 = (s.seasons || []).find(x => x.season_number === 1);
-    if (!sea1) { s.seasons = s.seasons || []; sea1 = { season_number: 1, episodes: [] }; s.seasons.push(sea1); }
-    for (let i = 1; i <= totalEps; i++) {
-      if (!sea1.episodes.find(e => e.episode_number === i)) {
-        sea1.episodes.push({ episode_number: i, title: `Episode ${i}`, synopsis: null, air_date: null, watched: false });
-      }
-    }
-    sea1.episodes.sort((a, b) => a.episode_number - b.episode_number);
-    s.total_seasons = s.seasons.length;
-  }
+  // Re-walk the full sequel chain to rebuild all seasons
+  const chain = await fetchAnilistChain(parseInt(s.anilist_id));
+  if (!chain.length) return;
+
+  const root = chain[0];
+  s.title = root.title.english || root.title.romaji || s.title;
+  s.synopsis = root.description?.replace(/<[^>]*>/g, '') || s.synopsis;
+  s.poster_url = root.coverImage?.extraLarge || root.coverImage?.large || s.poster_url;
+  s.genres = root.genres?.length ? root.genres : s.genres;
+  s.year = root.startDate?.year?.toString() || s.year;
+
+  // Rebuild seasons from chain — preserve existing watched state per episode
+  const existingSeasons = s.seasons || [];
+  s.seasons = chain.map((entry, i) => {
+    const sNum = i + 1;
+    const totalEps = entry.episodes || 0;
+    const existingSea = existingSeasons.find(x => x.season_number === sNum);
+    const episodes = Array.from({ length: totalEps }, (_, j) => {
+      const epNum = j + 1;
+      const existingEp = existingSea?.episodes.find(e => e.episode_number === epNum);
+      return existingEp
+        ? { ...existingEp } // preserve watched + any titles already set by TMDB
+        : { episode_number: epNum, title: `Episode ${epNum}`, synopsis: null, air_date: null, watched: false };
+    });
+    return { season_number: sNum, episodes };
+  });
+  s.total_seasons = s.seasons.length;
 }
 
 // ─── Bulk Resync ───────────────────────────────────────────────────────────
