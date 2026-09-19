@@ -862,6 +862,7 @@ let anilistImportItems = [];
 let anilistImportFilter = 'all';
 let personFilmData = { movies: [], tv: [] };
 let currentFilmTab = 'movies';
+let filmographyReturnState = null; // { personId, scrollTop, tab } — set when adding from filmography
 let quickAddPayload = null;
 let tmdbRequestToken = null;
 let tmdbSessionId = null;
@@ -1570,12 +1571,26 @@ function saveSeries() {
     showToast('Series added', 'success');
   }
 
+  // Reset add-modal z-index before closing
+  document.getElementById('add-modal').style.zIndex = '';
   closeModal('add-modal');
   updateCounts();
   renderGrid();
   renderContinueStrip();
   saveToDrive();
-  if (editingSeriesId) openDetail(editingSeriesId);
+  if (editingSeriesId) {
+    openDetail(editingSeriesId);
+  } else if (filmographyReturnState) {
+    // Return to person modal with scroll position preserved
+    const returnState = filmographyReturnState;
+    filmographyReturnState = null;
+    // Modal is still open underneath — restore scroll and re-render tab badges
+    switchFilmTab(returnState.tab);
+    requestAnimationFrame(() => {
+      const g = document.getElementById('filmography-grid');
+      if (g) g.scrollTop = returnState.scrollTop;
+    });
+  }
 }
 
 // ─── TMDB ─────────────────────────────────────────────────────────────────
@@ -1976,7 +1991,15 @@ function renderFilmTab() {
 
 // ─── Add from filmography — full Search flow ───────────────────────────────
 async function addFromFilmographyFull(item, tab) {
-  closeModal('person-modal');
+  // Save person modal state so we can return to it after adding
+  const grid = document.getElementById('filmography-grid');
+  filmographyReturnState = {
+    scrollTop: grid ? grid.scrollTop : 0,
+    tab: currentFilmTab
+  };
+  // Keep person modal open underneath — just raise add-modal above it
+  document.getElementById('add-modal').style.zIndex = '200';
+
   const title = item.title || item.name || 'Untitled';
   const isAnime = tab === 'anime';
   const isMovie = tab === 'movies';
@@ -2403,6 +2426,18 @@ function renderRatingStars(val) {
 // ─── Helpers ───────────────────────────────────────────────────────────────
 function closeModal(id) {
   document.getElementById(id).classList.add('hidden');
+  // If cancelling the add-modal while person modal is waiting underneath, clean up z-index
+  if (id === 'add-modal' && filmographyReturnState) {
+    document.getElementById('add-modal').style.zIndex = '';
+    // Person modal is still open — just restore scroll
+    const returnState = filmographyReturnState;
+    filmographyReturnState = null;
+    switchFilmTab(returnState.tab);
+    requestAnimationFrame(() => {
+      const g = document.getElementById('filmography-grid');
+      if (g) g.scrollTop = returnState.scrollTop;
+    });
+  }
 }
 
 function showToast(msg, type) {
