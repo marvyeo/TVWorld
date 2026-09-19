@@ -273,7 +273,7 @@
   .film-tabs { display:flex; gap:0; margin-bottom:14px; border-bottom:1px solid var(--border); }
   .film-tab { padding:8px 14px; font-size:12px; font-weight:500; cursor:pointer; color:var(--muted); border-bottom:2px solid transparent; margin-bottom:-1px; transition:all 0.15s; }
   .film-tab.active { color:var(--accent2); border-bottom-color:var(--accent); }
-  .filmography-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:10px; max-height:380px; overflow-y:auto; padding-right:4px; }
+  .filmography-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:10px; max-height:520px; overflow-y:auto; padding-right:4px; }
   .film-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; overflow:hidden; cursor:pointer; transition:all 0.15s; position:relative; }
   .film-card:hover { border-color:var(--accent); }
   .film-card.in-library { border-color:rgba(34,211,165,0.4); }
@@ -1901,9 +1901,20 @@ async function openPersonModal(personId) {
 
 function switchFilmTab(tab) {
   currentFilmTab = tab;
+  const passes1990 = (item) => {
+    const start = parseInt((item.release_date || item.first_air_date || '').split('-')[0]) || 0;
+    const end = parseInt((item.last_air_date || '').split('-')[0]) || start;
+    if (start === 0) return true;
+    if (start >= 1990) return true;
+    return end >= 1990;
+  };
+  const count = (key) => (personFilmData[key] || []).filter(passes1990).length;
   document.getElementById('ftab-movies').classList.toggle('active', tab==='movies');
+  document.getElementById('ftab-movies').textContent = `Movies (${count('movies')})`;
   document.getElementById('ftab-tv').classList.toggle('active', tab==='tv');
+  document.getElementById('ftab-tv').textContent = `TV (${count('tv')})`;
   document.getElementById('ftab-anime').classList.toggle('active', tab==='anime');
+  document.getElementById('ftab-anime').textContent = `Anime (${count('anime')})`;
   renderFilmTab();
 }
 
@@ -1915,13 +1926,22 @@ function renderFilmTab() {
     return;
   }
 
-  // Library entries first, then rest
-  const inLib = items.filter(item => data.series.some(s => String(s.tmdb_id)===String(item.id)));
-  const notInLib = items.filter(item => !data.series.some(s => String(s.tmdb_id)===String(item.id)));
+  // 1990 hard cap: exclude anything that both started AND ended before 1990
+  const passes1990 = (item) => {
+    const start = parseInt((item.release_date || item.first_air_date || '').split('-')[0]) || 0;
+    const end = parseInt((item.last_air_date || '').split('-')[0]) || start;
+    if (start === 0) return true; // no date — include
+    if (start >= 1990) return true; // started 1990 or later — include
+    return end >= 1990; // started before 1990 but ran into 1990+ — include
+  };
+
+  // Library entries first, then rest — no cap
+  const inLib = items.filter(item => passes1990(item) && data.series.some(s => String(s.tmdb_id)===String(item.id)));
+  const notInLib = items.filter(item => passes1990(item) && !data.series.some(s => String(s.tmdb_id)===String(item.id)));
   const sorted = [...inLib, ...notInLib];
 
   grid.innerHTML = '';
-  sorted.slice(0, 60).forEach(item => {
+  sorted.forEach(item => {
     const title = item.title||item.name||'Untitled';
     const year = (item.release_date||item.first_air_date||'').split('-')[0];
     const libEntry = data.series.find(s => String(s.tmdb_id)===String(item.id));
