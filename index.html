@@ -522,6 +522,10 @@
         </div>
         <button class="btn btn-primary btn-sm" onclick="saveTmdbKey()">Save Key</button>
         <span style="font-size:12px;color:var(--muted);margin-left:10px;" id="tmdb-key-status"></span>
+        <div style="margin-top:14px;">
+          <button class="btn btn-secondary btn-sm" onclick="bulkRefreshCast()">↻ Refresh Cast (All)</button>
+          <span style="font-size:12px;color:var(--muted);margin-left:10px;" id="cast-resync-status"></span>
+        </div>
       </div>
       <div class="settings-section">
         <div class="settings-section-title">My Streaming Platforms</div>
@@ -1783,13 +1787,20 @@ async function fetchProviders(seriesId, tmdbId) {
   try {
     const [provRes, castRes] = await Promise.all([
       fetch(`https://api.themoviedb.org/3/tv/${tmdbId}/watch/providers?api_key=${key}`),
-      fetch(`https://api.themoviedb.org/3/tv/${tmdbId}/credits?api_key=${key}`)
+      fetch(`https://api.themoviedb.org/3/tv/${tmdbId}/aggregate_credits?api_key=${key}`)
     ]);
     const provJson = await provRes.json();
     const castJson = await castRes.json();
     const sg = provJson.results?.SG;
     const all = [...(sg?.flatrate||[]), ...(sg?.ads||[]), ...(sg?.buy||[]), ...(sg?.free||[])].map(p => p.provider_name);
-    const cast = (castJson.cast||[]).slice(0,20).map(c => ({ id:c.id, name:c.name, character:c.character, profile_path:c.profile_path||null }));
+    // aggregate_credits returns roles[] per cast member; pick the most-episode role for character name
+    const cast = (castJson.cast||[])
+      .sort((a,b) => (b.total_episode_count||0) - (a.total_episode_count||0))
+      .slice(0,20)
+      .map(c => {
+        const topRole = (c.roles||[]).sort((a,b) => (b.episode_count||0) - (a.episode_count||0))[0];
+        return { id:c.id, name:c.name, character: topRole?.character || c.character || '', profile_path:c.profile_path||null };
+      });
     const s = data.series.find(x => x.id === seriesId);
     if (s) {
       s.streaming_platforms = [...new Set(all)];
@@ -2846,6 +2857,25 @@ async function bulkResyncAnilist() {
   saveToDrive(); renderGrid();
   statusEl.textContent = `✓ Synced ${done} entries`;
   showToast(`Synced ${done} anime`, 'success');
+}
+
+// ─── Bulk cast refresh ────────────────────────────────────────────────────
+async function bulkRefreshCast() {
+  const key = data.settings.tmdb_api_key;
+  if (!key) { showToast("Add your TMDB API key first", "error"); return; }
+  const entries = data.series.filter(s => s.tmdb_id);
+  if (!entries.length) { showToast("No entries with TMDB IDs", "error"); return; }
+  const statusEl = document.getElementById("cast-resync-status");
+  let done = 0;
+  statusEl.textContent = `Refreshing 0/${entries.length}…`;
+  for (const s of entries) {
+    await fetchProviders(s.id, s.tmdb_id);
+    done++;
+    statusEl.textContent = `Refreshing ${done}/${entries.length}…`;
+    await new Promise(r => setTimeout(r, 300));
+  }
+  statusEl.textContent = `✓ Refreshed ${done} entries`;
+  showToast(`Cast refreshed for ${done} entries`, "success");
 }
 
 // ─── AniList Account Import ────────────────────────────────────────────────
