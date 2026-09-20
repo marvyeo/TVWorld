@@ -930,6 +930,9 @@ async function loadFromDrive() {
     const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=name='${DRIVE_FILENAME}'+and+trashed=false&spaces=drive&fields=files(id,name)`, {
       headers: { Authorization: `Bearer ${accessToken}` }
     });
+    if (!res.ok) {
+      throw new Error(`Drive list failed: ${res.status}`);
+    }
     const list = await res.json();
     if (list.files && list.files.length > 0) {
       driveFileId = list.files[0].id;
@@ -972,12 +975,22 @@ async function saveToDrive() {
     const res = await fetch(url, {
       method, headers: { Authorization: `Bearer ${accessToken}` }, body: form
     });
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => ({}));
+      setSyncStatus('error');
+      if (res.status === 401 || errJson?.error?.status === 'UNAUTHENTICATED') {
+        showToast('Session expired — please sign in again to save', 'error');
+      } else {
+        showToast(`Save failed (${res.status})`, 'error');
+      }
+      return;
+    }
     const saved = await res.json();
     if (!driveFileId) driveFileId = saved.id;
     setSyncStatus('ok');
   } catch(e) {
     setSyncStatus('error');
-    showToast('Save failed', 'error');
+    showToast('Save failed — check your connection', 'error');
   }
 }
 
