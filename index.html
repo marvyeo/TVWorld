@@ -576,6 +576,10 @@
           <div class="type-pill active-tv" id="search-src-tmdb" onclick="setSearchSource('tmdb')" style="cursor:pointer;">TMDB (TV / Movies)</div>
           <div class="type-pill" id="search-src-anilist" onclick="setSearchSource('anilist')" style="cursor:pointer;">AniList (Anime)</div>
         </div>
+        <div style="display:flex;gap:6px;margin-bottom:10px;" id="tmdb-type-toggle">
+          <div class="type-pill active-tv" id="tmdb-type-tv" onclick="setTmdbSearchType('tv')" style="cursor:pointer;">📺 TV</div>
+          <div class="type-pill" id="tmdb-type-movie" onclick="setTmdbSearchType('movie')" style="cursor:pointer;">🎬 Movie</div>
+        </div>
         <div style="display:flex;gap:8px;">
           <input class="form-input" id="tmdb-search-input" placeholder="Title…" onkeydown="if(event.key==='Enter')searchCombined()">
           <button class="btn btn-primary" onclick="searchCombined()">Search</button>
@@ -1611,13 +1615,26 @@ function saveSeries() {
 }
 
 // ─── TMDB ─────────────────────────────────────────────────────────────────
+let tmdbSearchType = 'tv'; // 'tv' | 'movie'
+
+function setTmdbSearchType(type) {
+  tmdbSearchType = type;
+  document.getElementById('tmdb-type-tv').className = 'type-pill' + (type === 'tv' ? ' active-tv' : '');
+  document.getElementById('tmdb-type-movie').className = 'type-pill' + (type === 'movie' ? ' active-movie' : '');
+  document.getElementById('tmdb-results').classList.add('hidden');
+}
+
 async function searchTMDB() {
   const q = document.getElementById('tmdb-search-input').value.trim();
   if (!q) return;
   const key = data.settings.tmdb_api_key;
   if (!key) { showToast('Add your TMDB API key in Settings', 'error'); return; }
 
-  const res = await fetch(`https://api.themoviedb.org/3/search/tv?api_key=${key}&query=${encodeURIComponent(q)}&region=SG`);
+  const isMovie = tmdbSearchType === 'movie';
+  const endpoint = isMovie
+    ? `https://api.themoviedb.org/3/search/movie?api_key=${key}&query=${encodeURIComponent(q)}`
+    : `https://api.themoviedb.org/3/search/tv?api_key=${key}&query=${encodeURIComponent(q)}&region=SG`;
+  const res = await fetch(endpoint);
   const json = await res.json();
   const results = json.results || [];
   const container = document.getElementById('tmdb-results');
@@ -1627,11 +1644,11 @@ async function searchTMDB() {
   container.classList.remove('hidden');
   container.className = 'tmdb-results';
   container.innerHTML = results.slice(0, 8).map(r => `
-    <div class="tmdb-result-item" onclick="selectTMDB(${r.id}, 'tv')">
-      ${r.poster_path ? `<img class="tmdb-result-thumb" src="https://image.tmdb.org/t/p/w92${r.poster_path}">` : `<div class="tmdb-result-thumb" style="display:flex;align-items:center;justify-content:center;color:var(--muted)">📺</div>`}
+    <div class="tmdb-result-item" onclick="selectTMDB(${r.id}, '${isMovie ? 'movie' : 'tv'}')">
+      ${r.poster_path ? `<img class="tmdb-result-thumb" src="https://image.tmdb.org/t/p/w92${r.poster_path}">` : `<div class="tmdb-result-thumb" style="display:flex;align-items:center;justify-content:center;color:var(--muted)">${isMovie ? '🎬' : '📺'}</div>`}
       <div>
-        <div class="tmdb-result-title">${r.name}</div>
-        <div class="tmdb-result-meta">${r.first_air_date?.split('-')[0]||'?'} · ${r.vote_average?.toFixed(1)||'?'} ★</div>
+        <div class="tmdb-result-title">${isMovie ? (r.title || r.name) : r.name}</div>
+        <div class="tmdb-result-meta">${(isMovie ? r.release_date : r.first_air_date)?.split('-')[0]||'?'} · ${r.vote_average?.toFixed(1)||'?'} ★</div>
       </div>
     </div>`).join('');
 }
@@ -1704,6 +1721,23 @@ async function refreshFromTMDB() {
   showToast('Refreshing from TMDB…');
 
   try {
+    // Movies: refresh metadata only — no seasons/episodes
+    if (s.type === 'movie') {
+      const res = await fetch(`https://api.themoviedb.org/3/movie/${s.tmdb_id}?api_key=${key}`);
+      if (!res.ok) throw new Error(`TMDB movie fetch failed: ${res.status}`);
+      const m = await res.json();
+      s.title = m.title || s.title;
+      s.synopsis = m.overview || s.synopsis;
+      s.poster_url = m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : s.poster_url;
+      s.genres = (m.genres||[]).map(g=>g.name).length ? (m.genres||[]).map(g=>g.name) : s.genres;
+      s.year = (m.release_date||'').split('-')[0] || s.year;
+      await fetchProviders(s.id, s.tmdb_id);
+      saveToDrive();
+      openDetail(s.id);
+      showToast('Refreshed from TMDB ✓', 'success');
+      return;
+    }
+
     const seriesRes = await fetch(`https://api.themoviedb.org/3/tv/${s.tmdb_id}?api_key=${key}`);
     const meta = await seriesRes.json();
     const tmdbSeasonCount = meta.number_of_seasons || 1;
@@ -2535,6 +2569,12 @@ function setSearchSource(src) {
   document.getElementById('search-src-tmdb').classList.toggle('active-tv', src === 'tmdb');
   document.getElementById('search-src-anilist').classList.toggle('active-anime', src === 'anilist');
   document.getElementById('tmdb-search-input').placeholder = src === 'anilist' ? 'Anime title…' : 'Title…';
+  // Show/hide the TV/Movie sub-toggle
+  const toggle = document.getElementById('tmdb-type-toggle');
+  if (toggle) toggle.style.display = src === 'tmdb' ? 'flex' : 'none';
+  // Reset to TV when switching back to TMDB
+  if (src === 'tmdb') setTmdbSearchType('tv');
+  document.getElementById('tmdb-results').classList.add('hidden');
 }
 
 function searchCombined() {
