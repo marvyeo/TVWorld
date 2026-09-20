@@ -1797,30 +1797,39 @@ async function refreshFromTMDB() {
 async function fetchProviders(seriesId, tmdbId) {
   const key = data.settings.tmdb_api_key;
   if (!key) return;
+  const s = data.series.find(x => x.id === seriesId);
+  if (!s) return;
+  const isMovie = s.type === 'movie';
   try {
+    const mediaType = isMovie ? 'movie' : 'tv';
     const [provRes, castRes] = await Promise.all([
-      fetch(`https://api.themoviedb.org/3/tv/${tmdbId}/watch/providers?api_key=${key}`),
-      fetch(`https://api.themoviedb.org/3/tv/${tmdbId}/aggregate_credits?api_key=${key}`)
+      fetch(`https://api.themoviedb.org/3/${mediaType}/${tmdbId}/watch/providers?api_key=${key}`),
+      fetch(`https://api.themoviedb.org/3/${mediaType}/${tmdbId}/${isMovie ? 'credits' : 'aggregate_credits'}?api_key=${key}`)
     ]);
     const provJson = await provRes.json();
     const castJson = await castRes.json();
     const sg = provJson.results?.SG;
     const all = [...(sg?.flatrate||[]), ...(sg?.ads||[]), ...(sg?.buy||[]), ...(sg?.free||[])].map(p => p.provider_name);
-    // aggregate_credits returns roles[] per cast member; pick the most-episode role for character name
-    const cast = (castJson.cast||[])
-      .sort((a,b) => (b.total_episode_count||0) - (a.total_episode_count||0))
-      .slice(0,20)
-      .map(c => {
-        const topRole = (c.roles||[]).sort((a,b) => (b.episode_count||0) - (a.episode_count||0))[0];
-        return { id:c.id, name:c.name, character: topRole?.character || c.character || '', profile_path:c.profile_path||null };
-      });
-    const s = data.series.find(x => x.id === seriesId);
-    if (s) {
-      s.streaming_platforms = [...new Set(all)];
-      s.cast = cast;
-      if (currentSeriesId === seriesId) { renderPlatformFlag(s); renderCastStrip(s); }
-      saveToDrive();
+    let cast;
+    if (isMovie) {
+      // /movie/credits returns a flat cast array sorted by order
+      cast = (castJson.cast||[]).slice(0,20).map(c => ({
+        id: c.id, name: c.name, character: c.character || '', profile_path: c.profile_path||null
+      }));
+    } else {
+      // aggregate_credits returns roles[] per cast member; pick the most-episode role for character name
+      cast = (castJson.cast||[])
+        .sort((a,b) => (b.total_episode_count||0) - (a.total_episode_count||0))
+        .slice(0,20)
+        .map(c => {
+          const topRole = (c.roles||[]).sort((a,b) => (b.episode_count||0) - (a.episode_count||0))[0];
+          return { id:c.id, name:c.name, character: topRole?.character || c.character || '', profile_path:c.profile_path||null };
+        });
     }
+    s.streaming_platforms = [...new Set(all)];
+    s.cast = cast;
+    if (currentSeriesId === seriesId) { renderPlatformFlag(s); renderCastStrip(s); }
+    saveToDrive();
   } catch(e) { console.error('Provider/cast fetch failed:', e); }
 }
 
