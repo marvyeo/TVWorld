@@ -322,6 +322,47 @@
   .ep-title { flex:1; font-size:13px; }
   .ep-airdate { color:var(--muted); font-size:11px; flex-shrink:0; }
   .ep-future { color:var(--paused); font-size:11px; flex-shrink:0; }
+
+  /* ── Discover pages ── */
+  .disc-scan { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:14px 16px; margin-bottom:18px; display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
+  .disc-scan-info { flex:1; min-width:240px; }
+  .disc-scan-line { font-size:13px; font-weight:500; }
+  .disc-scan-sub { font-size:11px; color:var(--muted); margin-top:3px; line-height:1.5; }
+  .disc-progress { height:3px; background:var(--border); border-radius:2px; margin-top:10px; overflow:hidden; }
+  .disc-progress-fill { height:100%; width:0; background:var(--accent); transition:width 0.3s; }
+  .disc-switch { display:inline-flex; align-items:center; gap:7px; font-size:12px; color:var(--muted); cursor:pointer; user-select:none; margin-left:auto; align-self:center; }
+  .disc-switch input { accent-color:var(--accent); width:15px; height:15px; cursor:pointer; }
+  .disc-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(132px,1fr)); gap:12px; }
+  .disc-tier { grid-column:1/-1; display:flex; align-items:baseline; gap:10px; margin:18px 0 2px; padding-bottom:8px; border-bottom:1px solid var(--border); }
+  .disc-tier:first-child { margin-top:0; }
+  .disc-tier-title { font-family:'Syne',sans-serif; font-weight:700; font-size:15px; }
+  .disc-tier-count { font-size:12px; color:var(--muted); }
+  .disc-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow:hidden; cursor:pointer; position:relative; transition:border-color 0.15s, transform 0.15s; }
+  .disc-card:hover { border-color:var(--accent); transform:translateY(-2px); }
+  .disc-card.tracked { border:2px solid var(--watching); background:rgba(34,211,165,0.07); }
+  .disc-card.tracked .disc-title { font-weight:800; }
+  .disc-poster { width:100%; aspect-ratio:2/3; object-fit:cover; background:var(--border); display:block; }
+  .disc-poster-ph { width:100%; aspect-ratio:2/3; background:var(--border); display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:26px; }
+  .disc-count { position:absolute; top:6px; left:6px; background:rgba(14,15,19,0.88); border:1px solid rgba(245,158,11,0.45); color:#f59e0b; font-size:10px; font-weight:700; padding:2px 7px; border-radius:20px; }
+  .disc-body { padding:8px 9px 10px; }
+  .disc-title { font-size:12px; font-weight:600; line-height:1.3; }
+  .disc-year { font-size:10px; color:var(--muted); margin-top:2px; }
+  .disc-names { font-size:10px; color:#9ca3af; margin-top:5px; line-height:1.4; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .dm-hero { display:flex; gap:18px; margin-bottom:20px; align-items:flex-start; }
+  .dm-poster { width:110px; flex-shrink:0; border-radius:10px; aspect-ratio:2/3; object-fit:cover; background:var(--border); }
+  .dm-poster-ph { width:110px; flex-shrink:0; border-radius:10px; aspect-ratio:2/3; background:var(--border); display:flex; align-items:center; justify-content:center; font-size:32px; color:var(--muted); }
+  .dm-title { font-family:'Syne',sans-serif; font-size:22px; font-weight:800; line-height:1.15; margin-bottom:6px; padding-right:24px; }
+  .dm-meta { font-size:12px; color:var(--muted); margin-bottom:10px; }
+  .dm-overview { font-size:12px; color:#9ca3af; line-height:1.6; max-height:110px; overflow-y:auto; margin-bottom:14px; }
+  .dm-stars { display:flex; flex-direction:column; gap:2px; max-height:380px; overflow-y:auto; }
+  .dm-star { display:flex; gap:12px; align-items:center; padding:8px 10px; border-radius:10px; cursor:pointer; transition:background 0.1s; }
+  .dm-star:hover { background:var(--surface); }
+  .dm-star-photo { width:42px; height:42px; border-radius:50%; object-fit:cover; background:var(--border); flex-shrink:0; }
+  .dm-star-ph { width:42px; height:42px; border-radius:50%; background:var(--border); flex-shrink:0; display:flex; align-items:center; justify-content:center; color:var(--muted); }
+  .dm-star-name { font-size:13px; font-weight:600; }
+  .dm-star-role { font-weight:400; color:var(--muted); }
+  .dm-star-from { font-size:11px; color:var(--muted); margin-top:2px; }
+  .dm-star-from b { color:#9ca3af; font-weight:500; }
 </style>
 </head>
 <body>
@@ -370,6 +411,13 @@
       </div>
       <div class="nav-item" data-view="stars" onclick="switchView('stars')">
         <span>⭐</span> Stars <span class="count" id="count-stars">0</span>
+      </div>
+      <div class="nav-section">Discover</div>
+      <div class="nav-item" data-view="discover-tv" onclick="switchView('discover-tv')">
+        <span>📺</span> TV from Your Stars
+      </div>
+      <div class="nav-item" data-view="discover-movie" onclick="switchView('discover-movie')">
+        <span>🎬</span> Movies from Your Stars
       </div>
       <div class="divider"></div>
       <div class="nav-section">Actions</div>
@@ -464,6 +512,44 @@
         <button class="sort-btn" data-stars-sort="za" onclick="setStarsSort('za',this)">Z → A</button>
       </div>
       <div class="stars-grid" id="stars-grid"></div>
+    </div>
+
+    <!-- Discover view (TV / Movies from tracked stars) -->
+    <div id="discover-view" class="hidden">
+      <div class="page-header">
+        <div class="page-title" id="disc-title">TV from Your Stars</div>
+        <div class="page-sub" id="disc-sub"></div>
+      </div>
+      <div class="disc-scan">
+        <div class="disc-scan-info">
+          <div class="disc-scan-line" id="disc-scan-line">Loading…</div>
+          <div class="disc-scan-sub" id="disc-scan-sub"></div>
+          <div class="disc-progress hidden" id="disc-progress"><div class="disc-progress-fill" id="disc-progress-fill"></div></div>
+        </div>
+        <button class="btn btn-primary btn-sm" id="disc-scan-btn" onclick="toggleDiscoverScan()">Scan</button>
+        <button class="btn btn-ghost btn-sm" id="disc-rescan-btn" onclick="rescanDiscover()">Rescan all</button>
+      </div>
+      <div class="toolbar">
+        <div class="search-box">
+          <span style="color:var(--muted)">🔍</span>
+          <input type="text" id="disc-search" placeholder="Search titles or stars…" oninput="renderDiscover()">
+        </div>
+      </div>
+      <div class="sort-bar">
+        <span style="font-size:11px;color:var(--muted);align-self:center;">Sort:</span>
+        <button class="sort-btn active" data-disc-sort="stars" onclick="setDiscoverSort('stars',this)">Most Stars</button>
+        <button class="sort-btn" data-disc-sort="az" onclick="setDiscoverSort('az',this)">A → Z</button>
+        <button class="sort-btn" data-disc-sort="year-desc" onclick="setDiscoverSort('year-desc',this)">Year (New)</button>
+        <button class="sort-btn" data-disc-sort="year-asc" onclick="setDiscoverSort('year-asc',this)">Year (Old)</button>
+        <label class="disc-switch"><input type="checkbox" id="disc-hide-tracked" onchange="setDiscoverHideTracked(this.checked)"> Hide titles in my library</label>
+      </div>
+      <div class="disc-grid" id="disc-grid"></div>
+      <div id="disc-sentinel" style="height:1px;"></div>
+      <div id="disc-empty" class="empty-state hidden">
+        <div class="empty-icon">🔭</div>
+        <div class="empty-title" id="disc-empty-title">No scan yet</div>
+        <div class="empty-sub" id="disc-empty-sub">Scan your stars' filmographies to see what else they've been in.</div>
+      </div>
     </div>
 
     <!-- Detail view -->
@@ -711,6 +797,16 @@
   </div>
 </div>
 
+<!-- Discover item modal -->
+<div id="discover-modal" class="modal-overlay hidden">
+  <div class="modal modal-xl" style="max-width:640px;">
+    <button class="modal-close" onclick="closeModal('discover-modal')">✕</button>
+    <div class="dm-hero" id="dm-hero"></div>
+    <div class="section-label" id="dm-stars-label"></div>
+    <div class="dm-stars" id="dm-stars"></div>
+  </div>
+</div>
+
 <!-- Quick-Add from Filmography Modal -->
 <div id="quick-add-modal" class="modal-overlay hidden">
   <div class="modal">
@@ -872,6 +968,7 @@ let personFilmData = { movies: [], tv: [] };
 let currentFilmTab = 'movies';
 let filmographyReturnState = null; // { personId, scrollTop, tab } — set when adding from filmography
 let quickAddPayload = null;
+let detailReturn = null; // { view, scroll } — where ← Back in the detail view should return to
 let tmdbRequestToken = null;
 let tmdbSessionId = null;
 let tmdbImportItems = [];
@@ -1034,18 +1131,19 @@ function initUI() {
 // ─── Views ─────────────────────────────────────────────────────────────────
 function switchView(view) {
   currentView = view;
+  currentSeriesId = null;
+  detailReturn = null;
   document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.view === view));
   const isStars = view === 'stars';
   const isSettings = view === 'settings';
-  const isDetail = !!currentSeriesId && view === currentView;
-  document.getElementById('list-view').classList.toggle('hidden', isSettings || isStars || !!currentSeriesId);
+  const isDiscover = view === 'discover-tv' || view === 'discover-movie';
+  document.getElementById('list-view').classList.toggle('hidden', isSettings || isStars || isDiscover);
   document.getElementById('stars-view').classList.toggle('hidden', !isStars);
+  document.getElementById('discover-view').classList.toggle('hidden', !isDiscover);
   document.getElementById('detail-view').classList.add('hidden');
   document.getElementById('settings-view').classList.toggle('hidden', !isSettings);
 
-  if (!isSettings && !isStars) {
-    currentSeriesId = null;
-    document.getElementById('list-view').classList.remove('hidden');
+  if (!isSettings && !isStars && !isDiscover) {
     const titles = { all:'All Series', movies:'Movies', watching:'Watching', plan:'Plan to Watch', paused:'Paused', completed:'Completed', dropped:'Dropped' };
     document.getElementById('list-title').textContent = titles[view] || 'All Series';
     renderGrid();
@@ -1053,6 +1151,7 @@ function switchView(view) {
     document.getElementById('continue-section').classList.toggle('hidden', view !== 'all' && view !== 'watching');
   }
   if (isStars) renderStarsGrid();
+  if (isDiscover) openDiscoverView(view === 'discover-movie' ? 'movie' : 'tv');
 }
 
 // ─── Sort ──────────────────────────────────────────────────────────────────
@@ -1190,11 +1289,19 @@ function nextUnwatchedEpisode(s) {
 
 // ─── Detail view ──────────────────────────────────────────────────────────
 function openDetail(id) {
-  currentSeriesId = id;
   const s = data.series.find(x => x.id === id);
   if (!s) return;
+  // Remember where we came from so ← Back returns to Stars / Discover with scroll intact
+  if (document.getElementById('detail-view').classList.contains('hidden')) {
+    detailReturn = (currentView === 'stars' || currentView.startsWith('discover'))
+      ? { view: currentView, scroll: document.getElementById('main').scrollTop }
+      : null;
+  }
+  currentSeriesId = id;
   document.getElementById('list-view').classList.add('hidden');
   document.getElementById('settings-view').classList.add('hidden');
+  document.getElementById('stars-view').classList.add('hidden');
+  document.getElementById('discover-view').classList.add('hidden');
   document.getElementById('detail-view').classList.remove('hidden');
 
   document.getElementById('detail-title').textContent = s.title;
@@ -1384,6 +1491,12 @@ function updateDetailStatus() {
 }
 
 function closeDetail() {
+  if (detailReturn) {
+    const r = detailReturn;
+    switchView(r.view);
+    requestAnimationFrame(() => { document.getElementById('main').scrollTop = r.scroll; });
+    return;
+  }
   currentSeriesId = null;
   document.getElementById('detail-view').classList.add('hidden');
   document.getElementById('list-view').classList.remove('hidden');
@@ -1612,6 +1725,7 @@ function saveSeries() {
       if (g) g.scrollTop = returnState.scrollTop;
     });
   }
+  if (!editingSeriesId && currentView.startsWith('discover')) renderDiscover(true);
 }
 
 // ─── TMDB ─────────────────────────────────────────────────────────────────
@@ -2493,6 +2607,7 @@ function renderRatingStars(val) {
 // ─── Helpers ───────────────────────────────────────────────────────────────
 function closeModal(id) {
   document.getElementById(id).classList.add('hidden');
+  if (id === 'add-modal') document.getElementById('add-modal').style.zIndex = '';
   // If cancelling the add-modal while person modal is waiting underneath, clean up z-index
   if (id === 'add-modal' && filmographyReturnState) {
     document.getElementById('add-modal').style.zIndex = '';
@@ -3066,6 +3181,488 @@ async function confirmAnilistImport() {
   showToast(`Imported ${added} anime from AniList`, 'success');
   btn.disabled = false;
 }
+
+// ─── Discover: TV / Movies from your stars ─────────────────────────────────
+// Tracked stars = top 20 cast per library TV show / movie (the existing s.cast field).
+// Filmographies are cached in this browser's IndexedDB (too large for tvworld-data.json):
+//   personCredits key personId → [[media(0=movie,1=tv), tmdbId, title, date, poster, character]]  (pre-filtered)
+// Stars no longer in the pool are pruned from the cache after each load and scan.
+const DISC_DB_NAME = 'tvworld-discover';
+const DISC_FILTER_VERSION = 1;   // bump when discKeepCredit changes → forces people rescan
+const DISC_CONCURRENCY = 6;
+const DISC_CHUNK = 120;
+const DISC_CAST_LIMIT = 20;
+const DISC_SELF_RE = /\b(self|himself|herself|themselves|themself)\b/i;
+const DISC_SKIP_TV_GENRES = [10763, 10764, 10767]; // News, Reality, Talk
+const DISC_ANIME_COUNTRIES = ['JP','KR','CN','TW'];
+const DISC_ANIME_LANGS = ['ja','ko','zh'];
+
+let discDb = null;
+let disc = { personCredits: new Map(), lastScan: null, loaded: false };
+let discScan = { running: false, stop: false, phase: '', done: 0, total: 0, failed: 0, error: null };
+let discWriteBuf = { personCredits: [] };
+let discMedia = 'tv';
+let discSort = 'stars';
+let discHideTracked = false;
+let discList = [];
+let discRendered = 0;
+let discObserver = null;
+let discLastLiveRender = 0;
+let discModalItem = null;
+
+const discSleep = (ms) => new Promise(r => setTimeout(r, ms));
+const discEsc = (str) => String(str ?? '').replace(/[&<>"']/g, ch => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[ch]));
+
+// ── IndexedDB helpers ──
+function discOpenDb() {
+  if (discDb) return Promise.resolve(discDb);
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DISC_DB_NAME, 1);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      ['titleCast', 'personCredits', 'meta'].forEach(n => { if (!db.objectStoreNames.contains(n)) db.createObjectStore(n); });
+    };
+    req.onsuccess = () => { discDb = req.result; resolve(discDb); };
+    req.onerror = () => reject(req.error);
+  });
+}
+async function discTx(store, mode, fn) {
+  const db = await discOpenDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, mode);
+    const req = fn(tx.objectStore(store));
+    let result;
+    if (req) req.onsuccess = () => { result = req.result; };
+    tx.oncomplete = () => resolve(result);
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
+  });
+}
+async function discReadAll(store) {
+  const db = await discOpenDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, 'readonly');
+    const st = tx.objectStore(store);
+    const kReq = st.getAllKeys();
+    const vReq = st.getAll();
+    tx.oncomplete = () => resolve(kReq.result.map((k, i) => [k, vReq.result[i]]));
+    tx.onerror = () => reject(tx.error);
+  });
+}
+function discQueueWrite(store, key, val) { discWriteBuf[store].push([key, val]); }
+async function discFlush() {
+  for (const store of ['personCredits']) {
+    const items = discWriteBuf[store].splice(0);
+    if (!items.length) continue;
+    try { await discTx(store, 'readwrite', st => { items.forEach(([k, v]) => st.put(v, k)); }); }
+    catch (e) { console.error('Discover cache write failed', e); }
+  }
+}
+async function discLoad() {
+  if (disc.loaded) return;
+  try {
+    const ver = await discTx('meta', 'readonly', st => st.get('filterVersion'));
+    if (ver !== DISC_FILTER_VERSION) {
+      await discTx('personCredits', 'readwrite', st => st.clear());
+      await discTx('meta', 'readwrite', st => st.put(DISC_FILTER_VERSION, 'filterVersion'));
+    }
+    // Full-cast lists from the earlier build are no longer used — free the space
+    await discTx('titleCast', 'readwrite', st => st.clear());
+    disc.personCredits = new Map(await discReadAll('personCredits'));
+    disc.lastScan = (await discTx('meta', 'readonly', st => st.get('lastScan'))) || null;
+    await discPrune();
+  } catch (e) {
+    console.error(e);
+    showToast('This browser blocked the discovery cache — results won\'t be saved between visits', 'error');
+  }
+  disc.loaded = true;
+}
+async function discPrune() {
+  // Drop cached filmographies for people who are no longer in anyone's top 20
+  const { pool } = discBuildPool();
+  const stale = [...disc.personCredits.keys()].filter(id => !pool.has(id));
+  if (!stale.length) return;
+  stale.forEach(id => disc.personCredits.delete(id));
+  try { await discTx('personCredits', 'readwrite', st => { stale.forEach(id => st.delete(id)); }); }
+  catch (e) { console.error('Discover prune failed', e); }
+}
+
+// ── Pool of tracked stars ──
+function discBuildPool() {
+  const pool = new Map();
+  let missingTitles = 0;
+  for (const s of data.series) {
+    if (s.type !== 'tv' && s.type !== 'movie') continue;
+    const cast = (s.cast || []).slice(0, DISC_CAST_LIMIT);
+    if (!cast.length) { if (s.tmdb_id) missingTitles++; continue; }
+    cast.forEach((c, order) => {
+      let p = pool.get(c.id);
+      if (!p) { p = { id: c.id, name: c.name, profile_path: c.profile_path || null, minOrder: order, knownFrom: [] }; pool.set(c.id, p); }
+      if (order < p.minOrder) p.minOrder = order;
+      if (!p.profile_path && c.profile_path) p.profile_path = c.profile_path;
+      if (!p.knownFrom.some(k => k.libId === s.id)) p.knownFrom.push({ title: s.title, character: c.character || '', libId: s.id });
+    });
+  }
+  return { pool, missingTitles };
+}
+
+// ── TMDB fetching ──
+async function discFetchJSON(url) {
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const res = await fetch(url);
+    if (res.status === 429 || res.status >= 500) { await discSleep(1000 * (attempt + 1)); continue; }
+    if (res.status === 404) return null;
+    if (res.status === 401) { const err = new Error('TMDB key rejected'); err.fatal = true; throw err; }
+    if (!res.ok) throw new Error(`TMDB ${res.status}`);
+    return res.json();
+  }
+  throw new Error('TMDB kept rate-limiting');
+}
+function discKeepCredit(c) {
+  if (c.media_type !== 'tv' && c.media_type !== 'movie') return false;
+  if (DISC_SELF_RE.test(c.character || '')) return false;          // talk shows, award shows, documentaries as themselves
+  const yr = parseInt((c.release_date || c.first_air_date || '').slice(0, 4)) || 0;
+  if (yr && yr < 1990) return false;                                // same 1990 cap as the person modal
+  const g = c.genre_ids || [];
+  if (c.media_type === 'tv' && g.some(x => DISC_SKIP_TV_GENRES.includes(x))) return false;
+  if (g.includes(16)) {                                             // anime (animated + East Asian origin)
+    if ((c.origin_country || []).some(o => DISC_ANIME_COUNTRIES.includes(o))) return false;
+    if (DISC_ANIME_LANGS.includes(c.original_language)) return false;
+  }
+  return true;
+}
+function discCompactCredits(json) {
+  const out = [];
+  const seen = new Map();
+  for (const c of (json?.cast || [])) {
+    if (!discKeepCredit(c)) continue;
+    const k = c.media_type + ':' + c.id;
+    if (seen.has(k)) {
+      const row = seen.get(k);
+      if (c.character && !row[5].includes(c.character)) row[5] = row[5] ? `${row[5]} / ${c.character}` : c.character;
+      continue;
+    }
+    const row = [c.media_type === 'movie' ? 0 : 1, c.id, c.title || c.name || 'Untitled', c.release_date || c.first_air_date || '', c.poster_path || null, c.character || ''];
+    seen.set(k, row);
+    out.push(row);
+  }
+  return out;
+}
+async function discRunQueue(items, worker) {
+  let i = 0;
+  const lane = async () => {
+    while (i < items.length && !discScan.stop) {
+      const item = items[i++];
+      try { await worker(item); }
+      catch (e) {
+        discScan.failed++;
+        if (e.fatal) { discScan.error = e.message; discScan.stop = true; }
+      }
+      discScan.done++;
+      if (discScan.done % 20 === 0) {
+        discUpdateScanUI();
+        discFlush();
+        discLiveRender();
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: DISC_CONCURRENCY }, lane));
+}
+async function toggleDiscoverScan() {
+  if (discScan.running) { discScan.stop = true; discUpdateScanUI(); return; }
+  const key = data.settings.tmdb_api_key;
+  if (!key) { showToast('Add your TMDB API key in Settings', 'error'); return; }
+  await discLoad();
+  const { pool } = discBuildPool();
+  const people = [...pool.values()]
+    .filter(p => !disc.personCredits.has(p.id))
+    .sort((a, b) => a.minOrder - b.minOrder || b.knownFrom.length - a.knownFrom.length);
+  discScan = { running: true, stop: false, phase: 'people', done: 0, total: people.length, failed: 0, error: null };
+  discUpdateScanUI();
+  await discRunQueue(people, async (p) => {
+    const json = await discFetchJSON(`https://api.themoviedb.org/3/person/${p.id}/combined_credits?api_key=${key}`);
+    const val = discCompactCredits(json);
+    disc.personCredits.set(p.id, val);
+    discQueueWrite('personCredits', p.id, val);
+  });
+  await discFlush();
+  await discPrune();
+
+  const stopped = discScan.stop;
+  const error = discScan.error;
+  if (!stopped) {
+    disc.lastScan = Date.now();
+    try { await discTx('meta', 'readwrite', st => st.put(disc.lastScan, 'lastScan')); } catch (e) {}
+  }
+  discScan.running = false;
+  discScan.stop = false;
+  discUpdateScanUI();
+  if (currentView.startsWith('discover')) renderDiscover(true);
+  if (error) showToast(`Scan stopped — ${error}. Check your key in Settings.`, 'error');
+  else if (stopped) showToast('Scan paused — press Resume to carry on');
+  else showToast('Scan complete', 'success');
+}
+async function rescanDiscover() {
+  if (discScan.running) { showToast('Pause the current scan first', 'error'); return; }
+  if (!confirm('Clear the discovery cache and re-scan every star? Use this when filmographies are out of date.')) return;
+  try { await discTx('personCredits', 'readwrite', st => st.clear()); } catch (e) {}
+  disc.personCredits = new Map();
+  renderDiscover();
+  toggleDiscoverScan();
+}
+// ── Scan status UI ──
+function discFmt(n) { return n.toLocaleString(); }
+function discUpdateScanUI() {
+  if (!document.getElementById('disc-scan-line')) return;
+  const line = document.getElementById('disc-scan-line');
+  const sub = document.getElementById('disc-scan-sub');
+  const btn = document.getElementById('disc-scan-btn');
+  const prog = document.getElementById('disc-progress');
+  const fill = document.getElementById('disc-progress-fill');
+  document.getElementById('disc-rescan-btn').disabled = discScan.running;
+
+  if (discScan.running) {
+    const remaining = Math.max(0, discScan.total - discScan.done);
+    const mins = Math.ceil(remaining / (DISC_CONCURRENCY * 5) / 60);
+    line.textContent = discScan.stop
+      ? 'Pausing…'
+      : `Scanning filmographies: ${discFmt(discScan.done)} of ${discFmt(discScan.total)} stars`;
+    sub.textContent = `About ${mins} min left. Results fill in as you go; you can keep browsing or pause and resume later.`;
+    btn.textContent = 'Pause';
+    btn.className = 'btn btn-secondary btn-sm';
+    prog.classList.remove('hidden');
+    fill.style.width = discScan.total ? `${(discScan.done / discScan.total) * 100}%` : '0%';
+    return;
+  }
+
+  prog.classList.add('hidden');
+  btn.className = 'btn btn-primary btn-sm';
+  const { pool, missingTitles } = discBuildPool();
+  let scanned = 0;
+  pool.forEach(p => { if (disc.personCredits.has(p.id)) scanned++; });
+  const toGo = pool.size - scanned;
+  const noCast = missingTitles > 0
+    ? ` ${discFmt(missingTitles)} library title${missingTitles !== 1 ? 's have' : ' has'} no cast yet — run ↻ Refresh Cast (All) in Settings to include them.`
+    : '';
+  if (!scanned) {
+    line.textContent = `${discFmt(pool.size)} stars ready to scan`;
+    sub.textContent = `Top ${DISC_CAST_LIMIT} billed cast from each show and movie in your library. Results appear as the scan runs.` + noCast;
+    btn.textContent = 'Scan';
+  } else if (toGo > 0) {
+    line.textContent = `${discFmt(scanned)} of ${discFmt(pool.size)} stars scanned`;
+    sub.textContent = `${discFmt(toGo)} star${toGo !== 1 ? 's' : ''} not scanned yet.` + noCast;
+    btn.textContent = 'Resume';
+  } else {
+    line.textContent = `All ${discFmt(pool.size)} stars scanned`;
+    sub.textContent = (disc.lastScan ? `Last scan ${new Date(disc.lastScan).toLocaleDateString()}. Rescan all to pick up new credits.` : '') + noCast;
+    btn.textContent = 'Scan';
+  }
+}
+
+// ── Aggregation + rendering ──
+function discAggregate(media) {
+  const { pool } = discBuildPool();
+  const mcode = media === 'movie' ? 0 : 1;
+  const lib = new Map();
+  const animeIds = new Set();
+  data.series.forEach(s => {
+    if (!s.tmdb_id) return;
+    const id = String(s.tmdb_id);
+    if (media === 'movie' && s.type === 'movie') lib.set(id, s);
+    if (media === 'tv' && s.type === 'tv') lib.set(id, s);
+    if (media === 'tv' && s.type === 'anime') animeIds.add(id);
+  });
+  const titles = new Map();
+  let scanned = 0;
+  for (const p of pool.values()) {
+    const credits = disc.personCredits.get(p.id);
+    if (!credits) continue;
+    scanned++;
+    for (const [m, id, t, d, poster, ch] of credits) {
+      if (m !== mcode) continue;
+      const sid = String(id);
+      if (animeIds.has(sid)) continue;
+      let e = titles.get(sid);
+      if (!e) { e = { id, t, d, poster, year: parseInt(d.slice(0, 4)) || 0, lib: lib.get(sid) || null, stars: [] }; titles.set(sid, e); }
+      e.stars.push({ p, ch });
+    }
+  }
+  const items = [...titles.values()];
+  items.forEach(e => e.stars.sort((a, b) => b.p.knownFrom.length - a.p.knownFrom.length || a.p.minOrder - b.p.minOrder));
+  return { items, poolSize: pool.size, scanned };
+}
+function openDiscoverView(media) {
+  discMedia = media;
+  discRendered = 0;
+  document.getElementById('disc-title').textContent = media === 'movie' ? 'Movies from Your Stars' : 'TV from Your Stars';
+  document.getElementById('disc-grid').innerHTML = '';
+  document.getElementById('main').scrollTop = 0;
+  if (!discObserver) {
+    discObserver = new IntersectionObserver(entries => {
+      if (entries.some(en => en.isIntersecting)) discRenderMore();
+    }, { root: document.getElementById('main'), rootMargin: '800px' });
+    discObserver.observe(document.getElementById('disc-sentinel'));
+  }
+  discLoad().then(() => { discUpdateScanUI(); renderDiscover(); });
+}
+function setDiscoverSort(sort, btn) {
+  discSort = sort;
+  document.querySelectorAll('[data-disc-sort]').forEach(b => b.classList.toggle('active', b === btn));
+  renderDiscover();
+}
+function setDiscoverHideTracked(on) {
+  discHideTracked = on;
+  renderDiscover();
+}
+function discLiveRender() {
+  // During a scan, refresh results only when the user is near the top so the page doesn't jump under them
+  if (!currentView.startsWith('discover') || currentSeriesId) return;
+  const now = Date.now();
+  if (now - discLastLiveRender < 4000) return;
+  if (document.getElementById('main').scrollTop > 300) return;
+  discLastLiveRender = now;
+  renderDiscover(true);
+}
+function renderDiscover(keepPosition) {
+  if (!disc.loaded) return;
+  const main = document.getElementById('main');
+  const scroll = main.scrollTop;
+  const keepCount = keepPosition ? discRendered : 0;
+  const { items: all, poolSize, scanned } = discAggregate(discMedia);
+  const q = document.getElementById('disc-search').value.trim().toLowerCase();
+  const items = q ? all.filter(e => e.t.toLowerCase().includes(q) || e.stars.some(s => s.p.name.toLowerCase().includes(q))) : all;
+
+  const cmp = {
+    'stars':     (a, b) => b.stars.length - a.stars.length || b.year - a.year || a.t.localeCompare(b.t),
+    'az':        (a, b) => a.t.localeCompare(b.t),
+    'year-desc': (a, b) => b.year - a.year || a.t.localeCompare(b.t),
+    'year-asc':  (a, b) => (a.year || 9999) - (b.year || 9999) || a.t.localeCompare(b.t),
+  }[discSort];
+  const tiers = [
+    { label: 'In your library', items: discHideTracked ? [] : items.filter(e => e.lib) },
+    { label: 'Shared by 2+ of your stars', items: items.filter(e => !e.lib && e.stars.length >= 2) },
+    { label: 'One of your stars', items: items.filter(e => !e.lib && e.stars.length === 1) },
+  ];
+  discList = [];
+  tiers.forEach(t => {
+    if (!t.items.length) return;
+    t.items.sort(cmp);
+    discList.push({ header: true, label: t.label, count: t.items.length });
+    t.items.forEach(e => discList.push(e));
+  });
+
+  const noun = discMedia === 'movie' ? 'movie' : 'show';
+  const newCount = all.filter(e => !e.lib).length;
+  document.getElementById('disc-sub').textContent = scanned
+    ? `${discFmt(newCount)} ${noun}${newCount !== 1 ? 's' : ''} you haven't tracked, from ${discFmt(scanned)} of your ${discFmt(poolSize)} stars`
+    : 'Everything your stars have been in, ranked by how many of them appear together';
+
+  const empty = document.getElementById('disc-empty');
+  empty.classList.toggle('hidden', discList.length > 0);
+  if (!discList.length) {
+    document.getElementById('disc-empty-title').textContent = !scanned ? 'No scan yet' : q ? 'No matches' : 'Nothing to show';
+    document.getElementById('disc-empty-sub').textContent = !scanned
+      ? 'Press Scan above to read your stars\' filmographies.'
+      : q ? 'Try a different title or star name.' : 'Turn off "Hide titles in my library" or scan more stars.';
+  }
+  document.getElementById('disc-grid').innerHTML = '';
+  discRendered = 0;
+  discRenderMore(Math.max(DISC_CHUNK, keepCount));
+  if (keepPosition) requestAnimationFrame(() => { main.scrollTop = scroll; });
+}
+function discRenderMore(n) {
+  if (!currentView.startsWith('discover')) return;
+  const grid = document.getElementById('disc-grid');
+  const end = Math.min(discList.length, discRendered + (n || DISC_CHUNK));
+  if (discRendered >= end) return;
+  const icon = discMedia === 'movie' ? '🎬' : '📺';
+  let html = '';
+  for (let i = discRendered; i < end; i++) {
+    const e = discList[i];
+    if (e.header) {
+      html += `<div class="disc-tier"><span class="disc-tier-title">${discEsc(e.label)}</span><span class="disc-tier-count">${discFmt(e.count)}</span></div>`;
+      continue;
+    }
+    const names = e.stars.slice(0, 3).map(s => s.p.name).join(', ') + (e.stars.length > 3 ? ` +${e.stars.length - 3}` : '');
+    html += `<div class="disc-card${e.lib ? ' tracked' : ''}" onclick="openDiscoverItem(${i})">
+      ${e.lib ? '<div class="in-library-badge">✓ In Library</div>' : ''}
+      <div class="disc-count">★ ${e.stars.length}</div>
+      ${e.poster
+        ? `<img class="disc-poster" src="https://image.tmdb.org/t/p/w185${e.poster}" loading="lazy" alt="" onerror="this.outerHTML='<div class=\\'disc-poster-ph\\'>${icon}</div>'">`
+        : `<div class="disc-poster-ph">${icon}</div>`}
+      <div class="disc-body">
+        <div class="disc-title">${discEsc(e.t)}</div>
+        <div class="disc-year">${e.year || 'TBA'}</div>
+        <div class="disc-names">${discEsc(names)}</div>
+      </div>
+    </div>`;
+  }
+  grid.insertAdjacentHTML('beforeend', html);
+  discRendered = end;
+}
+
+// ── Detail modal ──
+async function openDiscoverItem(i) {
+  const e = discList[i];
+  if (!e || e.header) return;
+  discModalItem = e;
+  const isMovie = discMedia === 'movie';
+  const icon = isMovie ? '🎬' : '📺';
+  document.getElementById('dm-hero').innerHTML = `
+    ${e.poster ? `<img class="dm-poster" src="https://image.tmdb.org/t/p/w342${e.poster}" alt="">` : `<div class="dm-poster-ph">${icon}</div>`}
+    <div style="flex:1;min-width:0;">
+      <div class="dm-title">${discEsc(e.t)}</div>
+      <div class="dm-meta">${e.year || 'TBA'} · ${isMovie ? 'Movie' : 'TV series'}${e.lib ? ` · In your library (${discEsc(e.lib.status)})` : ''}</div>
+      <div class="dm-overview" id="dm-overview">Loading synopsis…</div>
+      ${e.lib
+        ? `<button class="btn btn-secondary btn-sm" onclick="discOpenLibrary()">Open in library</button>`
+        : `<button class="btn btn-primary btn-sm" onclick="discAddToLibrary()">+ Add to library</button>`}
+    </div>`;
+  document.getElementById('dm-stars-label').textContent = `Your stars in this ${isMovie ? 'movie' : 'show'} (${e.stars.length})`;
+  document.getElementById('dm-stars').innerHTML = e.stars.map(({ p, ch }) => {
+    const from = p.knownFrom.slice(0, 3).map(k => `<b>${discEsc(k.title)}</b>`).join(', ') + (p.knownFrom.length > 3 ? ` +${p.knownFrom.length - 3} more` : '');
+    return `<div class="dm-star" onclick="discOpenPerson(${p.id})">
+      ${p.profile_path ? `<img class="dm-star-photo" src="https://image.tmdb.org/t/p/w92${p.profile_path}" loading="lazy" alt="">` : '<div class="dm-star-ph">👤</div>'}
+      <div style="min-width:0;">
+        <div class="dm-star-name">${discEsc(p.name)}${ch ? ` <span class="dm-star-role">as ${discEsc(ch)}</span>` : ''}</div>
+        <div class="dm-star-from">From ${from}</div>
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('discover-modal').classList.remove('hidden');
+
+  const key = data.settings.tmdb_api_key;
+  try {
+    const res = await fetch(`https://api.themoviedb.org/3/${isMovie ? 'movie' : 'tv'}/${e.id}?api_key=${key}`);
+    const json = res.ok ? await res.json() : {};
+    if (discModalItem !== e) return;
+    const genres = (json.genres || []).map(g => g.name).join(', ');
+    const extra = !isMovie && json.number_of_seasons ? ` · ${json.number_of_seasons} season${json.number_of_seasons !== 1 ? 's' : ''}` : '';
+    if (genres || extra) document.querySelector('#dm-hero .dm-meta').textContent += (genres ? ` · ${genres}` : '') + extra;
+    document.getElementById('dm-overview').textContent = json.overview || 'No synopsis available.';
+  } catch (err) {
+    if (discModalItem === e) document.getElementById('dm-overview').textContent = 'No synopsis available.';
+  }
+}
+function discOpenPerson(personId) {
+  closeModal('discover-modal');
+  openPersonModal(personId);
+}
+function discOpenLibrary() {
+  const e = discModalItem;
+  closeModal('discover-modal');
+  if (e?.lib) openDetail(e.lib.id);
+}
+async function discAddToLibrary() {
+  const e = discModalItem;
+  if (!e) return;
+  closeModal('discover-modal');
+  const mediaType = discMedia === 'movie' ? 'movie' : 'tv';
+  openAddModal('tmdb');
+  setTmdbSearchType(mediaType);
+  await selectTMDB(e.id, mediaType);
+}
+
 </script>
 </body>
 </html>
