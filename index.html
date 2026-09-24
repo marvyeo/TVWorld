@@ -2,7 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0e0f13">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>TV World</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -323,6 +326,13 @@
   .ep-airdate { color:var(--muted); font-size:11px; flex-shrink:0; }
   .ep-future { color:var(--paused); font-size:11px; flex-shrink:0; }
 
+  /* ── Go to top ── */
+  .to-top { position:fixed; right:28px; bottom:28px; z-index:60; background:var(--card); border:1px solid var(--border); color:var(--text); border-radius:24px; padding:10px 16px; font-size:12px; font-weight:600; cursor:pointer; box-shadow:0 6px 20px rgba(0,0,0,0.45); opacity:0; pointer-events:none; transform:translateY(8px); transition:opacity 0.2s, transform 0.2s, border-color 0.15s; }
+  .to-top.show { opacity:1; pointer-events:auto; transform:translateY(0); }
+  .to-top:hover { border-color:var(--accent); }
+  .hide-completed-switch { display:inline-flex; align-items:center; gap:7px; font-size:12px; color:var(--muted); cursor:pointer; user-select:none; margin-left:auto; align-self:center; }
+  .hide-completed-switch input { accent-color:var(--accent); width:15px; height:15px; cursor:pointer; }
+
   /* ── Discover pages ── */
   .disc-scan { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:14px 16px; margin-bottom:18px; display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
   .disc-scan-info { flex:1; min-width:240px; }
@@ -363,6 +373,97 @@
   .dm-star-role { font-weight:400; color:var(--muted); }
   .dm-star-from { font-size:11px; color:var(--muted); margin-top:2px; }
   .dm-star-from b { color:#9ca3af; font-weight:500; }
+  /* ── Discover TV/Movies switch (all sizes) ── */
+  .disc-media-switch { display:flex; gap:8px; margin-top:12px; }
+
+  /* ── Mobile chrome (hidden on desktop) ── */
+  .mobile-only { display:none !important; }
+  #bottom-nav, #fab, #drawer-backdrop, #mobile-topbar { display:none; }
+
+  @media (max-width: 768px) {
+    .mobile-only { display:revert !important; }
+    .desktop-only { display:none !important; }
+    #app { height:100dvh; }
+    #main { padding:12px 14px calc(96px + env(safe-area-inset-bottom)); padding-top:calc(12px + env(safe-area-inset-top)); }
+
+    /* Top bar */
+    #mobile-topbar { display:flex; align-items:center; justify-content:space-between; margin:-4px 0 14px; }
+    #mobile-topbar .wordmark { font-family:'Syne',sans-serif; font-size:18px; font-weight:800; letter-spacing:-0.5px; }
+    .topbar-btn { background:var(--card); border:1px solid var(--border); color:var(--text); border-radius:10px; width:38px; height:38px; font-size:17px; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+
+    /* Sidebar → slide-in drawer */
+    #sidebar { position:fixed; top:0; bottom:0; left:0; width:270px; max-width:82vw; z-index:160; transform:translateX(-100%); transition:transform 0.25s ease; padding-top:env(safe-area-inset-top); padding-bottom:env(safe-area-inset-bottom); box-shadow:8px 0 30px rgba(0,0,0,0.5); }
+    body.drawer-open #sidebar { transform:translateX(0); }
+    #drawer-backdrop { display:block; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:150; opacity:0; pointer-events:none; transition:opacity 0.25s; }
+    body.drawer-open #drawer-backdrop { opacity:1; pointer-events:auto; }
+    .nav-item { padding:11px 10px; font-size:14px; }
+
+    /* Bottom nav */
+    #bottom-nav { display:flex; position:fixed; left:0; right:0; bottom:0; z-index:90; background:rgba(22,23,30,0.96); backdrop-filter:blur(10px); border-top:1px solid var(--border); padding:6px 4px calc(6px + env(safe-area-inset-bottom)); }
+    .bn-item { flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; padding:6px 0; font-size:10px; font-weight:600; color:var(--muted); cursor:pointer; border-radius:10px; user-select:none; -webkit-tap-highlight-color:transparent; }
+    .bn-item .bn-icon { font-size:18px; line-height:1; }
+    .bn-item.active { color:var(--accent2); background:rgba(124,106,245,0.12); }
+
+    /* Floating add + go-to-top */
+    #fab { display:flex; position:fixed; right:16px; bottom:calc(76px + env(safe-area-inset-bottom)); z-index:91; width:54px; height:54px; border-radius:50%; background:var(--accent); color:#fff; font-size:28px; font-weight:300; align-items:center; justify-content:center; border:none; box-shadow:0 8px 24px rgba(124,106,245,0.45); cursor:pointer; }
+    .to-top { right:auto; left:16px; bottom:calc(84px + env(safe-area-inset-bottom)); padding:9px 14px; }
+
+    /* Page chrome */
+    .page-header { margin-bottom:14px; }
+    .page-title { font-size:22px; }
+    .toolbar { margin-bottom:12px; gap:8px; }
+    .search-box { min-width:0; flex:1 1 100%; }
+    .search-box input, .form-input { font-size:16px; } /* stops iOS zoom-on-focus */
+    #genre-filter { flex:1; }
+    .sort-bar { flex-wrap:nowrap; overflow-x:auto; padding-bottom:4px; margin-bottom:12px; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
+    .sort-bar::-webkit-scrollbar { display:none; }
+    .sort-btn { flex-shrink:0; padding:7px 12px; }
+    .hide-completed-switch, .disc-switch { flex-shrink:0; margin-left:8px; white-space:nowrap; }
+    .type-toggles { margin-bottom:10px; }
+
+    /* Grids */
+    .series-grid { grid-template-columns:repeat(2, 1fr); gap:10px; }
+    .series-card:hover, .disc-card:hover { transform:none; box-shadow:none; }
+    .series-card-body { padding:10px; }
+    .continue-card { width:230px; }
+    .continue-strip { margin-bottom:18px; }
+    .stars-grid { grid-template-columns:repeat(3, 1fr); gap:10px; }
+    .star-avatar, .star-avatar-ph { width:60px; height:60px; }
+    .disc-grid { grid-template-columns:repeat(2, 1fr); gap:10px; }
+    .disc-scan { padding:12px; }
+    .disc-scan .btn { flex:1; justify-content:center; }
+
+    /* Detail */
+    .detail-hero { flex-direction:column; gap:16px; margin-bottom:18px; }
+    #detail-poster-wrap { align-self:center; }
+    .detail-poster { width:130px; }
+    .detail-poster-ph { width:130px; height:195px; }
+    .detail-title { font-size:23px; }
+    .detail-actions { gap:6px; }
+    .detail-actions select { flex:1 1 100%; }
+    .episode-row { padding:11px 12px; gap:10px; flex-wrap:wrap; }
+    .ep-check { width:22px; height:22px; }
+    .ep-title { min-width:0; }
+    .season-header { padding:12px !important; }
+
+    /* Modals → bottom sheets */
+    .modal-overlay { align-items:flex-end; padding:0; }
+    .modal, .modal-xl { max-width:100% !important; width:100%; border-radius:18px 18px 0 0; max-height:92dvh; padding:22px 16px calc(20px + env(safe-area-inset-bottom)); border-bottom:none; }
+    .modal-title { font-size:18px; padding-right:28px; }
+    .form-row { flex-direction:column; gap:0; }
+    .person-hero-lg { gap:14px; }
+    .person-photo-lg, .person-photo-ph-lg { width:72px; height:72px; }
+    .filmography-grid { grid-template-columns:repeat(3, 1fr); max-height:none; overflow:visible; }
+    .film-tabs { overflow-x:auto; }
+    .dm-hero { gap:12px; }
+    .dm-poster, .dm-poster-ph { width:88px; }
+    .dm-title { font-size:18px; }
+    .dm-stars { max-height:none; }
+
+    /* Toast above the bottom nav */
+    #toast { bottom:calc(80px + env(safe-area-inset-bottom)); white-space:normal; max-width:calc(100vw - 32px); text-align:center; }
+    #toast:not(.show) { transform:translateX(-50%) translateY(calc(100% + 140px)); }
+  }
 </style>
 </head>
 <body>
@@ -376,6 +477,15 @@
 </div>
 
 <!-- Toast -->
+<div id="drawer-backdrop" onclick="closeDrawer()"></div>
+<nav id="bottom-nav">
+  <div class="bn-item" data-bn="all" onclick="switchView('all')"><span class="bn-icon">🎬</span>All</div>
+  <div class="bn-item" data-bn="watching" onclick="switchView('watching')"><span class="bn-icon">▶️</span>Watching</div>
+  <div class="bn-item" data-bn="plan" onclick="switchView('plan')"><span class="bn-icon">🔖</span>Plan</div>
+  <div class="bn-item" data-bn="discover" onclick="switchView(currentView === 'discover-movie' ? 'discover-movie' : lastDiscoverView)"><span class="bn-icon">🔭</span>Discover</div>
+  <div class="bn-item" data-bn="more" onclick="openDrawer()"><span class="bn-icon">☰</span>More</div>
+</nav>
+<button id="fab" onclick="openAddModal('tmdb')" aria-label="Add">+</button>
 <div id="toast"></div>
 
 <!-- Main App -->
@@ -390,9 +500,6 @@
       <div class="nav-section">Library</div>
       <div class="nav-item active" data-view="all" onclick="switchView('all')">
         <span>🎬</span> All Series <span class="count" id="count-all">0</span>
-      </div>
-      <div class="nav-item" data-view="movies" onclick="switchView('movies')">
-        <span>🍿</span> Movies <span class="count" id="count-movies">0</span>
       </div>
       <div class="nav-item" data-view="watching" onclick="switchView('watching')">
         <span class="status-dot dot-watching"></span> Watching <span class="count" id="count-watching">0</span>
@@ -432,7 +539,7 @@
       </div>
     </div>
     <div class="sidebar-bottom">
-      <div class="nav-item" onclick="switchView('settings')">
+      <div class="nav-item" data-view="settings" onclick="switchView('settings')">
         <span>⚙️</span> Settings
       </div>
       <div class="sync-status">
@@ -444,6 +551,12 @@
 
   <!-- Main area -->
   <div id="main">
+    <div id="mobile-topbar">
+      <button class="topbar-btn" onclick="openDrawer()" aria-label="Menu">☰</button>
+      <div class="wordmark">TV <span style="color:var(--accent2)">World</span></div>
+      <button class="topbar-btn" onclick="switchView('settings')" aria-label="Settings">⚙️</button>
+    </div>
+    <button class="to-top" id="to-top-btn" onclick="document.getElementById('main').scrollTo({ top: 0, behavior: 'smooth' })" title="Go to top">↑ Top</button>
 
     <!-- All / filtered views -->
     <div id="list-view">
@@ -466,7 +579,7 @@
         <select class="form-input form-select btn-secondary" id="genre-filter" onchange="renderGrid()" style="width:auto;padding:8px 12px;">
           <option value="">All Genres</option>
         </select>
-        <button class="btn btn-primary" onclick="openAddModal('tmdb')">+ Add Series</button>
+        <button class="btn btn-primary desktop-only" onclick="openAddModal('tmdb')">+ Add Series</button>
       </div>
       <div class="type-toggles" id="type-toggles">
         <div class="type-pill active-tv"    data-type="tv"    onclick="toggleType('tv',this)">📺 TV</div>
@@ -481,6 +594,7 @@
         <button class="sort-btn" data-sort="za" onclick="setSort('za',this)">Z → A</button>
         <button class="sort-btn" data-sort="year-desc" onclick="setSort('year-desc',this)">Year (New)</button>
         <button class="sort-btn" data-sort="year-asc" onclick="setSort('year-asc',this)">Year (Old)</button>
+        <label class="hide-completed-switch" id="hide-completed-wrap"><input type="checkbox" id="hide-completed" onchange="setHideCompleted(this.checked)"> Hide completed</label>
       </div>
 
       <div class="series-grid" id="series-grid"></div>
@@ -519,6 +633,10 @@
       <div class="page-header">
         <div class="page-title" id="disc-title">TV from Your Stars</div>
         <div class="page-sub" id="disc-sub"></div>
+        <div class="disc-media-switch">
+          <div class="type-pill" id="disc-media-tv" onclick="switchView('discover-tv')">📺 TV</div>
+          <div class="type-pill" id="disc-media-movie" onclick="switchView('discover-movie')">🎬 Movies</div>
+        </div>
       </div>
       <div class="disc-scan">
         <div class="disc-scan-info">
@@ -968,6 +1086,7 @@ let personFilmData = { movies: [], tv: [] };
 let currentFilmTab = 'movies';
 let filmographyReturnState = null; // { personId, scrollTop, tab } — set when adding from filmography
 let quickAddPayload = null;
+let hideCompleted = (() => { try { return localStorage.getItem('tvworld-hide-completed') === '1'; } catch (e) { return false; } })();
 let detailReturn = null; // { view, scroll } — where ← Back in the detail view should return to
 let tmdbRequestToken = null;
 let tmdbSessionId = null;
@@ -1044,6 +1163,14 @@ async function loadFromDrive() {
       data.settings = data.settings || { tmdb_api_key: '', subscribed_platforms: [] };
       data.series = data.series || [];
       data.upcoming = data.upcoming || [];
+      // Older JSON-ingested entries were saved without a type; the library already treats them as TV
+      data.series.forEach(s => { if (!s.type) s.type = 'tv'; });
+      // One-time status cleanup (after this, applyAutoStatus runs whenever episodes are ticked)
+      if (!data.settings.auto_status_v1) {
+        const moved = data.series.filter(s => applyAutoStatus(s)).length;
+        data.settings.auto_status_v1 = true;
+        if (moved) setTimeout(() => { showToast(`Updated status on ${moved} title${moved !== 1 ? 's' : ''} to match watch progress`, 'success'); saveToDrive(); }, 800);
+      }
     }
     setSyncStatus('ok');
     initUI();
@@ -1144,15 +1271,34 @@ function switchView(view) {
   document.getElementById('settings-view').classList.toggle('hidden', !isSettings);
 
   if (!isSettings && !isStars && !isDiscover) {
-    const titles = { all:'All Series', movies:'Movies', watching:'Watching', plan:'Plan to Watch', paused:'Paused', completed:'Completed', dropped:'Dropped' };
+    const titles = { all:'All Series', watching:'Watching', plan:'Plan to Watch', paused:'Paused', completed:'Completed', dropped:'Dropped' };
     document.getElementById('list-title').textContent = titles[view] || 'All Series';
+    document.getElementById('hide-completed-wrap').style.display = view === 'all' ? '' : 'none';
+    document.getElementById('hide-completed').checked = hideCompleted;
     renderGrid();
     renderContinueStrip();
     document.getElementById('continue-section').classList.toggle('hidden', view !== 'all' && view !== 'watching');
   }
   if (isStars) renderStarsGrid();
-  if (isDiscover) openDiscoverView(view === 'discover-movie' ? 'movie' : 'tv');
+  if (isDiscover) {
+    lastDiscoverView = view;
+    document.getElementById('disc-media-tv').className = 'type-pill' + (view === 'discover-tv' ? ' active-tv' : '');
+    document.getElementById('disc-media-movie').className = 'type-pill' + (view === 'discover-movie' ? ' active-movie' : '');
+    openDiscoverView(view === 'discover-movie' ? 'movie' : 'tv');
+  }
+  updateBottomNav();
+  closeDrawer();
 }
+
+// ─── Mobile chrome ─────────────────────────────────────────────────────────
+let lastDiscoverView = 'discover-tv';
+function updateBottomNav() {
+  const v = currentView;
+  const key = ['all', 'watching', 'plan'].includes(v) ? v : v.startsWith('discover') ? 'discover' : 'more';
+  document.querySelectorAll('.bn-item').forEach(el => el.classList.toggle('active', el.dataset.bn === key));
+}
+function openDrawer() { document.body.classList.add('drawer-open'); }
+function closeDrawer() { document.body.classList.remove('drawer-open'); }
 
 // ─── Sort ──────────────────────────────────────────────────────────────────
 function setSort(sort, btn) {
@@ -1175,12 +1321,12 @@ function renderGrid() {
   const genreFilter = document.getElementById('genre-filter').value;
 
   let filtered = data.series.filter(s => {
-    if (currentView === 'movies' && s.type !== 'movie') return false;
     if (currentView === 'watching' && s.status !== 'Watching') return false;
     if (currentView === 'plan' && s.status !== 'Plan to Watch') return false;
     if (currentView === 'paused' && s.status !== 'Paused') return false;
     if (currentView === 'completed' && s.status !== 'Completed') return false;
     if (currentView === 'dropped' && s.status !== 'Dropped') return false;
+    if (currentView === 'all' && hideCompleted && s.status === 'Completed') return false;
     if (!activeTypes.has(s.type || 'tv')) return false;
     if (query && !s.title.toLowerCase().includes(query)) return false;
     if (genreFilter && !(s.genres||[]).includes(genreFilter)) return false;
@@ -1293,9 +1439,10 @@ function openDetail(id) {
   if (!s) return;
   // Remember where we came from so ← Back returns to Stars / Discover with scroll intact
   if (document.getElementById('detail-view').classList.contains('hidden')) {
-    detailReturn = (currentView === 'stars' || currentView.startsWith('discover'))
+    detailReturn = currentView !== 'settings'
       ? { view: currentView, scroll: document.getElementById('main').scrollTop }
       : null;
+    document.getElementById('main').scrollTop = 0;
   }
   currentSeriesId = id;
   document.getElementById('list-view').classList.add('hidden');
@@ -1466,6 +1613,7 @@ function toggleEp(sid, si, ei) {
       <div class="progress-bar" style="height:6px;"><div class="progress-fill watching" style="width:${pct}%"></div></div>` : '';
   }
 
+  if (applyAutoStatus(s)) refreshDetailStatus(s);
   updateCounts();
   saveToDrive();
 }
@@ -1474,10 +1622,36 @@ function bulkMarkSeason(sid, si, watched) {
   const s = data.series.find(x => x.id === sid);
   if (!s) return;
   s.seasons[si].episodes.forEach(e => e.watched = watched);
+  if (applyAutoStatus(s)) refreshDetailStatus(s);
   renderSeasons(s);
   updateCounts();
   saveToDrive();
   showToast(watched ? 'Season marked watched' : 'Season unmarked', 'success');
+}
+
+// TV / anime: Watching with nothing watched → Plan to Watch; Plan to Watch with ≥1 watched → Watching.
+// Paused / Completed / Dropped and movies are never touched.
+function applyAutoStatus(s) {
+  if (s.type === 'movie') return false;
+  const watched = watchedEpisodes(s);
+  if (s.status === 'Watching' && watched === 0) { s.status = 'Plan to Watch'; return true; }
+  if (s.status === 'Plan to Watch' && watched > 0) { s.status = 'Watching'; return true; }
+  return false;
+}
+function refreshDetailStatus(s) {
+  if (currentSeriesId !== s.id) return;
+  document.getElementById('detail-status-select').value = s.status;
+  const badge = document.querySelector('#detail-tags .status-badge');
+  if (badge) {
+    badge.className = 'status-badge ' + ({ 'Watching':'badge-watching','Plan to Watch':'badge-plan','Paused':'badge-paused','Completed':'badge-complete','Dropped':'badge-dropped' }[s.status] || '');
+    badge.textContent = s.status;
+  }
+  showToast(`Moved to ${s.status}`);
+}
+function setHideCompleted(on) {
+  hideCompleted = on;
+  try { localStorage.setItem('tvworld-hide-completed', on ? '1' : '0'); } catch (e) {}
+  renderGrid();
 }
 
 function updateDetailStatus() {
@@ -1516,7 +1690,6 @@ function deleteSeries() {
 // ─── Counts ───────────────────────────────────────────────────────────────
 function updateCounts() {
   document.getElementById('count-all').textContent = data.series.length;
-  document.getElementById('count-movies').textContent = data.series.filter(s=>s.type==='movie').length;
   document.getElementById('count-watching').textContent = data.series.filter(s=>s.status==='Watching').length;
   document.getElementById('count-plan').textContent = data.series.filter(s=>s.status==='Plan to Watch').length;
   document.getElementById('count-paused').textContent = data.series.filter(s=>s.status==='Paused').length;
@@ -2506,6 +2679,7 @@ function normalizeIngestedSeries(raw) {
   }));
   return {
     id: raw.id || null,
+    type: ['tv','anime','movie'].includes(raw.type) ? raw.type : (raw.media_type === 'movie' ? 'movie' : 'tv'),
     title: raw.title || raw.name || 'Untitled',
     status: raw.status || 'Plan to Watch',
     total_seasons: raw.total_seasons || raw.number_of_seasons || seasons.length || null,
@@ -3290,9 +3464,11 @@ async function discPrune() {
 // ── Pool of tracked stars ──
 function discBuildPool() {
   const pool = new Map();
-  let missingTitles = 0;
+  let missingTitles = 0, noTmdb = 0;
   for (const s of data.series) {
-    if (s.type !== 'tv' && s.type !== 'movie') continue;
+    const type = s.type || 'tv';
+    if (type !== 'tv' && type !== 'movie') continue;
+    if (!s.tmdb_id) noTmdb++;
     const cast = (s.cast || []).slice(0, DISC_CAST_LIMIT);
     if (!cast.length) { if (s.tmdb_id) missingTitles++; continue; }
     cast.forEach((c, order) => {
@@ -3303,7 +3479,7 @@ function discBuildPool() {
       if (!p.knownFrom.some(k => k.libId === s.id)) p.knownFrom.push({ title: s.title, character: c.character || '', libId: s.id });
     });
   }
-  return { pool, missingTitles };
+  return { pool, missingTitles, noTmdb };
 }
 
 // ── TMDB fetching ──
@@ -3437,13 +3613,14 @@ function discUpdateScanUI() {
 
   prog.classList.add('hidden');
   btn.className = 'btn btn-primary btn-sm';
-  const { pool, missingTitles } = discBuildPool();
+  const { pool, missingTitles, noTmdb } = discBuildPool();
   let scanned = 0;
   pool.forEach(p => { if (disc.personCredits.has(p.id)) scanned++; });
   const toGo = pool.size - scanned;
-  const noCast = missingTitles > 0
+  let noCast = missingTitles > 0
     ? ` ${discFmt(missingTitles)} library title${missingTitles !== 1 ? 's have' : ' has'} no cast yet — run ↻ Refresh Cast (All) in Settings to include them.`
     : '';
+  if (noTmdb > 0) noCast += ` ${discFmt(noTmdb)} TV show${noTmdb !== 1 ? 's' : ''}/movie${noTmdb !== 1 ? 's have' : ' has'} no TMDB ID, so ${noTmdb !== 1 ? 'they' : 'it'} can't be matched here — add one via Edit.`;
   if (!scanned) {
     line.textContent = `${discFmt(pool.size)} stars ready to scan`;
     sub.textContent = `Top ${DISC_CAST_LIMIT} billed cast from each show and movie in your library. Results appear as the scan runs.` + noCast;
@@ -3468,9 +3645,10 @@ function discAggregate(media) {
   data.series.forEach(s => {
     if (!s.tmdb_id) return;
     const id = String(s.tmdb_id);
-    if (media === 'movie' && s.type === 'movie') lib.set(id, s);
-    if (media === 'tv' && s.type === 'tv') lib.set(id, s);
-    if (media === 'tv' && s.type === 'anime') animeIds.add(id);
+    const type = s.type || 'tv';
+    if (media === 'movie' && type === 'movie') lib.set(id, s);
+    if (media === 'tv' && type === 'tv') lib.set(id, s);
+    if (media === 'tv' && type === 'anime') animeIds.add(id);
   });
   const titles = new Map();
   let scanned = 0;
@@ -3663,6 +3841,16 @@ async function discAddToLibrary() {
   await selectTMDB(e.id, mediaType);
 }
 
+
+// ─── Go to top button ──────────────────────────────────────────────────────
+document.getElementById('main').addEventListener('scroll', (e) => {
+  document.getElementById('to-top-btn').classList.toggle('show', e.target.scrollTop > 600);
+}, { passive: true });
+
+// Close the mobile drawer after any sidebar action (Search, Add Manually, Ingest…)
+document.getElementById('sidebar').addEventListener('click', (e) => {
+  if (e.target.closest('.nav-item')) closeDrawer();
+});
 </script>
 </body>
 </html>
