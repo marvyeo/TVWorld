@@ -355,6 +355,18 @@
   .disc-poster-ph { width:100%; aspect-ratio:2/3; background:var(--border); display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:26px; }
   .disc-count { position:absolute; top:6px; left:6px; background:rgba(14,15,19,0.88); border:1px solid rgba(245,158,11,0.45); color:#f59e0b; font-size:10px; font-weight:700; padding:2px 7px; border-radius:20px; }
   .disc-body { padding:8px 9px 10px; }
+  .tmm-row { border:1px solid var(--border); border-radius:12px; padding:12px; margin-bottom:10px; }
+  .tmm-head { display:flex; justify-content:space-between; align-items:baseline; gap:10px; margin-bottom:10px; }
+  .tmm-title { font-weight:700; font-size:14px; }
+  .tmm-sub { font-size:11px; color:var(--muted); }
+  .tmm-cands { display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; }
+  .tmm-cand { flex-shrink:0; width:96px; cursor:pointer; border:1px solid var(--border); border-radius:10px; overflow:hidden; background:var(--surface); transition:border-color 0.15s; }
+  .tmm-cand:hover { border-color:var(--accent); }
+  .tmm-cand img, .tmm-cand .tmm-ph { width:100%; aspect-ratio:2/3; object-fit:cover; display:block; background:var(--border); }
+  .tmm-cand .tmm-ph { display:flex; align-items:center; justify-content:center; font-size:22px; color:var(--muted); }
+  .tmm-cand-name { font-size:10px; font-weight:600; padding:5px 6px 1px; line-height:1.3; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .tmm-cand-year { font-size:10px; color:var(--muted); padding:0 6px 6px; }
+  .disc-film { position:absolute; bottom:auto; top:30px; left:6px; background:rgba(14,15,19,0.88); border:1px solid var(--border); color:var(--muted); font-size:9px; font-weight:700; padding:2px 6px; border-radius:20px; letter-spacing:0.03em; }
   .disc-title { font-size:12px; font-weight:600; line-height:1.3; }
   .disc-year { font-size:10px; color:var(--muted); margin-top:2px; }
   .disc-names { font-size:10px; color:#9ca3af; margin-top:5px; line-height:1.4; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
@@ -482,7 +494,7 @@
   <div class="bn-item" data-bn="all" onclick="switchView('all')"><span class="bn-icon">🎬</span>All</div>
   <div class="bn-item" data-bn="watching" onclick="switchView('watching')"><span class="bn-icon">▶️</span>Watching</div>
   <div class="bn-item" data-bn="plan" onclick="switchView('plan')"><span class="bn-icon">🔖</span>Plan</div>
-  <div class="bn-item" data-bn="discover" onclick="switchView(currentView === 'discover-movie' ? 'discover-movie' : lastDiscoverView)"><span class="bn-icon">🔭</span>Discover</div>
+  <div class="bn-item" data-bn="discover" onclick="switchView(lastDiscoverView)"><span class="bn-icon">🔭</span>Discover</div>
   <div class="bn-item" data-bn="more" onclick="openDrawer()"><span class="bn-icon">☰</span>More</div>
 </nav>
 <button id="fab" onclick="openAddModal('tmdb')" aria-label="Add">+</button>
@@ -525,6 +537,9 @@
       </div>
       <div class="nav-item" data-view="discover-movie" onclick="switchView('discover-movie')">
         <span>🎬</span> Movies from Your Stars
+      </div>
+      <div class="nav-item" data-view="discover-anime" onclick="switchView('discover-anime')">
+        <span>⛩</span> Anime from Your Stars
       </div>
       <div class="divider"></div>
       <div class="nav-section">Actions</div>
@@ -636,6 +651,12 @@
         <div class="disc-media-switch">
           <div class="type-pill" id="disc-media-tv" onclick="switchView('discover-tv')">📺 TV</div>
           <div class="type-pill" id="disc-media-movie" onclick="switchView('discover-movie')">🎬 Movies</div>
+          <div class="type-pill" id="disc-media-anime" onclick="switchView('discover-anime')">⛩ Anime</div>
+        </div>
+        <div class="disc-media-switch hidden" id="disc-anime-formats">
+          <span style="font-size:11px;color:var(--muted);align-self:center;">Include:</span>
+          <div class="type-pill active-anime" data-disc-format="2" onclick="toggleDiscAnimeFormat(2, this)">📺 Series</div>
+          <div class="type-pill active-anime" data-disc-format="3" onclick="toggleDiscAnimeFormat(3, this)">🎞 Films</div>
         </div>
       </div>
       <div class="disc-scan">
@@ -729,6 +750,11 @@
         <div style="margin-top:14px;">
           <button class="btn btn-secondary btn-sm" onclick="bulkRefreshCast()">↻ Refresh Cast (All)</button>
           <span style="font-size:12px;color:var(--muted);margin-left:10px;" id="cast-resync-status"></span>
+        </div>
+        <div style="margin-top:10px;">
+          <button class="btn btn-secondary btn-sm" onclick="bulkMatchTmdb()" id="tmdb-match-btn">🔗 Match missing TMDB IDs</button>
+          <span style="font-size:12px;color:var(--muted);margin-left:10px;" id="tmdb-match-status"></span>
+          <div style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.5;">Finds TMDB IDs for titles that don't have one (mostly AniList imports), then pulls their cast. Clear matches are applied automatically; anything uncertain is shown to you to confirm.</div>
         </div>
       </div>
       <div class="settings-section">
@@ -912,6 +938,16 @@
       <div class="film-tab" id="ftab-anime" onclick="switchFilmTab('anime')">Anime</div>
     </div>
     <div class="filmography-grid" id="filmography-grid"></div>
+  </div>
+</div>
+
+<!-- Bulk TMDB match review -->
+<div id="tmdb-match-modal" class="modal-overlay hidden">
+  <div class="modal modal-xl" style="max-width:680px;">
+    <button class="modal-close" onclick="closeModal('tmdb-match-modal')">✕</button>
+    <div class="modal-title">Confirm TMDB matches</div>
+    <p style="font-size:12px;color:var(--muted);margin:-8px 0 16px;line-height:1.5;" id="tmm-intro"></p>
+    <div id="tmm-list"></div>
   </div>
 </div>
 
@@ -1263,7 +1299,7 @@ function switchView(view) {
   document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.view === view));
   const isStars = view === 'stars';
   const isSettings = view === 'settings';
-  const isDiscover = view === 'discover-tv' || view === 'discover-movie';
+  const isDiscover = view === 'discover-tv' || view === 'discover-movie' || view === 'discover-anime';
   document.getElementById('list-view').classList.toggle('hidden', isSettings || isStars || isDiscover);
   document.getElementById('stars-view').classList.toggle('hidden', !isStars);
   document.getElementById('discover-view').classList.toggle('hidden', !isDiscover);
@@ -1284,7 +1320,8 @@ function switchView(view) {
     lastDiscoverView = view;
     document.getElementById('disc-media-tv').className = 'type-pill' + (view === 'discover-tv' ? ' active-tv' : '');
     document.getElementById('disc-media-movie').className = 'type-pill' + (view === 'discover-movie' ? ' active-movie' : '');
-    openDiscoverView(view === 'discover-movie' ? 'movie' : 'tv');
+    document.getElementById('disc-media-anime').className = 'type-pill' + (view === 'discover-anime' ? ' active-anime' : '');
+    openDiscoverView(view.replace('discover-', ''));
   }
   updateBottomNav();
   closeDrawer();
@@ -3359,7 +3396,9 @@ async function confirmAnilistImport() {
 // ─── Discover: TV / Movies from your stars ─────────────────────────────────
 // Tracked stars = top 20 cast per library TV show / movie (the existing s.cast field).
 // Filmographies are cached in this browser's IndexedDB (too large for tvworld-data.json):
-//   personCredits key personId → [[media(0=movie,1=tv), tmdbId, title, date, poster, character]]  (pre-filtered)
+//   personCredits key personId → { v: 2, c: [[code, tmdbId, title, date, poster, character]] }  (pre-filtered)
+//     code: 0 movie · 1 TV · 2 anime series · 3 anime film
+//     Older records are a bare array with no anime rows — fine for TV/Movies, re-fetched for the Anime pool.
 // Stars no longer in the pool are pruned from the cache after each load and scan.
 const DISC_DB_NAME = 'tvworld-discover';
 const DISC_FILTER_VERSION = 1;   // bump when discKeepCredit changes → forces people rescan
@@ -3375,7 +3414,11 @@ let discDb = null;
 let disc = { personCredits: new Map(), lastScan: null, loaded: false };
 let discScan = { running: false, stop: false, phase: '', done: 0, total: 0, failed: 0, error: null };
 let discWriteBuf = { personCredits: [] };
-let discMedia = 'tv';
+let discMedia = 'tv';           // 'tv' | 'movie' | 'anime'
+let discAnimeFormats = new Set([2, 3]);
+const discRows = (rec) => Array.isArray(rec) ? rec : (rec?.c || []);
+const discHasAnime = (rec) => !!rec && !Array.isArray(rec) && rec.v >= 2;
+const discPoolKind = (media) => media === 'anime' ? 'anime' : 'live';
 let discSort = 'stars';
 let discHideTracked = false;
 let discList = [];
@@ -3453,8 +3496,9 @@ async function discLoad() {
 }
 async function discPrune() {
   // Drop cached filmographies for people who are no longer in anyone's top 20
-  const { pool } = discBuildPool();
-  const stale = [...disc.personCredits.keys()].filter(id => !pool.has(id));
+  const live = discBuildPool('live').pool;
+  const anime = discBuildPool('anime').pool;
+  const stale = [...disc.personCredits.keys()].filter(id => !live.has(id) && !anime.has(id));
   if (!stale.length) return;
   stale.forEach(id => disc.personCredits.delete(id));
   try { await discTx('personCredits', 'readwrite', st => { stale.forEach(id => st.delete(id)); }); }
@@ -3462,12 +3506,13 @@ async function discPrune() {
 }
 
 // ── Pool of tracked stars ──
-function discBuildPool() {
+function discBuildPool(kind = discPoolKind(discMedia)) {
+  // 'live' = cast of library TV shows + movies · 'anime' = cast of library anime
   const pool = new Map();
   let missingTitles = 0, noTmdb = 0;
   for (const s of data.series) {
     const type = s.type || 'tv';
-    if (type !== 'tv' && type !== 'movie') continue;
+    if (kind === 'anime' ? type !== 'anime' : (type !== 'tv' && type !== 'movie')) continue;
     if (!s.tmdb_id) noTmdb++;
     const cast = (s.cast || []).slice(0, DISC_CAST_LIMIT);
     if (!cast.length) { if (s.tmdb_id) missingTitles++; continue; }
@@ -3482,6 +3527,11 @@ function discBuildPool() {
   return { pool, missingTitles, noTmdb };
 }
 
+function discIsScanned(personId, kind = discPoolKind(discMedia)) {
+  const rec = disc.personCredits.get(personId);
+  return kind === 'anime' ? discHasAnime(rec) : !!rec;
+}
+
 // ── TMDB fetching ──
 async function discFetchJSON(url) {
   for (let attempt = 0; attempt < 5; attempt++) {
@@ -3494,35 +3544,38 @@ async function discFetchJSON(url) {
   }
   throw new Error('TMDB kept rate-limiting');
 }
-function discKeepCredit(c) {
-  if (c.media_type !== 'tv' && c.media_type !== 'movie') return false;
-  if (DISC_SELF_RE.test(c.character || '')) return false;          // talk shows, award shows, documentaries as themselves
+function discClassifyCredit(c) {
+  // Returns 0 movie · 1 TV · 2 anime series · 3 anime film, or null to drop the credit
+  if (c.media_type !== 'tv' && c.media_type !== 'movie') return null;
+  if (DISC_SELF_RE.test(c.character || '')) return null;           // talk shows, award shows, documentaries as themselves
   const yr = parseInt((c.release_date || c.first_air_date || '').slice(0, 4)) || 0;
-  if (yr && yr < 1990) return false;                                // same 1990 cap as the person modal
+  if (yr && yr < 1990) return null;                                 // same 1990 cap as the person modal
   const g = c.genre_ids || [];
-  if (c.media_type === 'tv' && g.some(x => DISC_SKIP_TV_GENRES.includes(x))) return false;
-  if (g.includes(16)) {                                             // anime (animated + East Asian origin)
-    if ((c.origin_country || []).some(o => DISC_ANIME_COUNTRIES.includes(o))) return false;
-    if (DISC_ANIME_LANGS.includes(c.original_language)) return false;
-  }
-  return true;
+  if (c.media_type === 'tv' && g.some(x => DISC_SKIP_TV_GENRES.includes(x))) return null;
+  const isAnime = g.includes(16) && (
+    (c.origin_country || []).some(o => DISC_ANIME_COUNTRIES.includes(o)) ||
+    DISC_ANIME_LANGS.includes(c.original_language)
+  );
+  if (isAnime) return c.media_type === 'movie' ? 3 : 2;
+  return c.media_type === 'movie' ? 0 : 1;
 }
 function discCompactCredits(json) {
   const out = [];
   const seen = new Map();
   for (const c of (json?.cast || [])) {
-    if (!discKeepCredit(c)) continue;
+    const code = discClassifyCredit(c);
+    if (code === null) continue;
     const k = c.media_type + ':' + c.id;
     if (seen.has(k)) {
       const row = seen.get(k);
       if (c.character && !row[5].includes(c.character)) row[5] = row[5] ? `${row[5]} / ${c.character}` : c.character;
       continue;
     }
-    const row = [c.media_type === 'movie' ? 0 : 1, c.id, c.title || c.name || 'Untitled', c.release_date || c.first_air_date || '', c.poster_path || null, c.character || ''];
+    const row = [code, c.id, c.title || c.name || 'Untitled', c.release_date || c.first_air_date || '', c.poster_path || null, c.character || ''];
     seen.set(k, row);
     out.push(row);
   }
-  return out;
+  return { v: 2, c: out };
 }
 async function discRunQueue(items, worker) {
   let i = 0;
@@ -3549,9 +3602,10 @@ async function toggleDiscoverScan() {
   const key = data.settings.tmdb_api_key;
   if (!key) { showToast('Add your TMDB API key in Settings', 'error'); return; }
   await discLoad();
-  const { pool } = discBuildPool();
+  const kind = discPoolKind(discMedia);
+  const { pool } = discBuildPool(kind);
   const people = [...pool.values()]
-    .filter(p => !disc.personCredits.has(p.id))
+    .filter(p => !discIsScanned(p.id, kind))
     .sort((a, b) => a.minOrder - b.minOrder || b.knownFrom.length - a.knownFrom.length);
   discScan = { running: true, stop: false, phase: 'people', done: 0, total: people.length, failed: 0, error: null };
   discUpdateScanUI();
@@ -3615,15 +3669,20 @@ function discUpdateScanUI() {
   btn.className = 'btn btn-primary btn-sm';
   const { pool, missingTitles, noTmdb } = discBuildPool();
   let scanned = 0;
-  pool.forEach(p => { if (disc.personCredits.has(p.id)) scanned++; });
+  pool.forEach(p => { if (discIsScanned(p.id)) scanned++; });
+  const isAnimePool = discPoolKind(discMedia) === 'anime';
   const toGo = pool.size - scanned;
   let noCast = missingTitles > 0
     ? ` ${discFmt(missingTitles)} library title${missingTitles !== 1 ? 's have' : ' has'} no cast yet — run ↻ Refresh Cast (All) in Settings to include them.`
     : '';
-  if (noTmdb > 0) noCast += ` ${discFmt(noTmdb)} TV show${noTmdb !== 1 ? 's' : ''}/movie${noTmdb !== 1 ? 's have' : ' has'} no TMDB ID, so ${noTmdb !== 1 ? 'they' : 'it'} can't be matched here — add one via Edit.`;
+  if (noTmdb > 0) noCast += isAnimePool
+    ? ` ${discFmt(noTmdb)} anime ${noTmdb !== 1 ? 'have' : 'has'} no TMDB ID, so ${noTmdb !== 1 ? 'their' : 'its'} cast can't be used — run 🔗 Match missing TMDB IDs in Settings.`
+    : ` ${discFmt(noTmdb)} TV show${noTmdb !== 1 ? 's' : ''}/movie${noTmdb !== 1 ? 's have' : ' has'} no TMDB ID, so ${noTmdb !== 1 ? 'they' : 'it'} can't be matched here — run 🔗 Match missing TMDB IDs in Settings.`;
   if (!scanned) {
     line.textContent = `${discFmt(pool.size)} stars ready to scan`;
-    sub.textContent = `Top ${DISC_CAST_LIMIT} billed cast from each show and movie in your library. Results appear as the scan runs.` + noCast;
+    sub.textContent = (isAnimePool
+      ? `Top ${DISC_CAST_LIMIT} cast (mostly voice actors) from each anime in your library.`
+      : `Top ${DISC_CAST_LIMIT} billed cast from each show and movie in your library.`) + ' Results appear as the scan runs.' + noCast;
     btn.textContent = 'Scan';
   } else if (toGo > 0) {
     line.textContent = `${discFmt(scanned)} of ${discFmt(pool.size)} stars scanned`;
@@ -3637,31 +3696,43 @@ function discUpdateScanUI() {
 }
 
 // ── Aggregation + rendering ──
+function discNormTitle(t) { return String(t || '').toLowerCase().replace(/[^a-z0-9]+/g, ''); }
 function discAggregate(media) {
-  const { pool } = discBuildPool();
-  const mcode = media === 'movie' ? 0 : 1;
-  const lib = new Map();
+  const { pool } = discBuildPool(discPoolKind(media));
+  const codes = media === 'movie' ? new Set([0]) : media === 'tv' ? new Set([1]) : discAnimeFormats;
+  const libById = new Map();    // tmdb_id → entry (same ID namespace)
+  const libByTitle = new Map(); // normalised title → anime entry (anime films only; see below)
   const animeIds = new Set();
   data.series.forEach(s => {
-    if (!s.tmdb_id) return;
-    const id = String(s.tmdb_id);
     const type = s.type || 'tv';
-    if (media === 'movie' && type === 'movie') lib.set(id, s);
-    if (media === 'tv' && type === 'tv') lib.set(id, s);
-    if (media === 'tv' && type === 'anime') animeIds.add(id);
+    const id = s.tmdb_id ? String(s.tmdb_id) : null;
+    if (media === 'movie' && type === 'movie' && id) libById.set(id, s);
+    if (media === 'tv' && type === 'tv' && id) libById.set(id, s);
+    if (media === 'tv' && type === 'anime' && id) animeIds.add(id);
+    if (media === 'anime') {
+      // Library anime carry TMDB *TV* IDs (autoMatchTMDB searches /search/tv), so series match by ID.
+      if (id && (type === 'anime' || type === 'tv')) libById.set('s' + id, s);
+      // Anime films: match a movie entry by ID, or an anime entry by title as a best effort.
+      if (id && type === 'movie') libById.set('f' + id, s);
+      if (type === 'anime') libByTitle.set(discNormTitle(s.title), s);
+    }
   });
   const titles = new Map();
   let scanned = 0;
   for (const p of pool.values()) {
-    const credits = disc.personCredits.get(p.id);
-    if (!credits) continue;
+    if (!discIsScanned(p.id, discPoolKind(media))) continue;
     scanned++;
-    for (const [m, id, t, d, poster, ch] of credits) {
-      if (m !== mcode) continue;
+    for (const [m, id, t, d, poster, ch] of discRows(disc.personCredits.get(p.id))) {
+      if (!codes.has(m)) continue;
       const sid = String(id);
-      if (animeIds.has(sid)) continue;
-      let e = titles.get(sid);
-      if (!e) { e = { id, t, d, poster, year: parseInt(d.slice(0, 4)) || 0, lib: lib.get(sid) || null, stars: [] }; titles.set(sid, e); }
+      if (media === 'tv' && animeIds.has(sid)) continue;
+      const key = media === 'anime' ? (m === 3 ? 'f' : 's') + sid : sid;
+      let e = titles.get(key);
+      if (!e) {
+        const lib = libById.get(key) || (m === 3 ? libByTitle.get(discNormTitle(t)) : null) || null;
+        e = { id, t, d, poster, film: m === 3, year: parseInt(d.slice(0, 4)) || 0, lib, stars: [] };
+        titles.set(key, e);
+      }
       e.stars.push({ p, ch });
     }
   }
@@ -3669,10 +3740,17 @@ function discAggregate(media) {
   items.forEach(e => e.stars.sort((a, b) => b.p.knownFrom.length - a.p.knownFrom.length || a.p.minOrder - b.p.minOrder));
   return { items, poolSize: pool.size, scanned };
 }
+function toggleDiscAnimeFormat(code, el) {
+  if (discAnimeFormats.has(code) && discAnimeFormats.size === 1) return; // keep at least one on
+  if (discAnimeFormats.has(code)) discAnimeFormats.delete(code); else discAnimeFormats.add(code);
+  el.classList.toggle('active-anime', discAnimeFormats.has(code));
+  renderDiscover();
+}
 function openDiscoverView(media) {
   discMedia = media;
   discRendered = 0;
-  document.getElementById('disc-title').textContent = media === 'movie' ? 'Movies from Your Stars' : 'TV from Your Stars';
+  document.getElementById('disc-title').textContent = { tv: 'TV', movie: 'Movies', anime: 'Anime' }[media] + ' from Your Stars';
+  document.getElementById('disc-anime-formats').classList.toggle('hidden', media !== 'anime');
   document.getElementById('disc-grid').innerHTML = '';
   document.getElementById('main').scrollTop = 0;
   if (!discObserver) {
@@ -3729,7 +3807,7 @@ function renderDiscover(keepPosition) {
     t.items.forEach(e => discList.push(e));
   });
 
-  const noun = discMedia === 'movie' ? 'movie' : 'show';
+  const noun = discMedia === 'movie' ? 'movie' : discMedia === 'anime' ? 'anime title' : 'show';
   const newCount = all.filter(e => !e.lib).length;
   document.getElementById('disc-sub').textContent = scanned
     ? `${discFmt(newCount)} ${noun}${newCount !== 1 ? 's' : ''} you haven't tracked, from ${discFmt(scanned)} of your ${discFmt(poolSize)} stars`
@@ -3753,7 +3831,7 @@ function discRenderMore(n) {
   const grid = document.getElementById('disc-grid');
   const end = Math.min(discList.length, discRendered + (n || DISC_CHUNK));
   if (discRendered >= end) return;
-  const icon = discMedia === 'movie' ? '🎬' : '📺';
+  const icon = discMedia === 'movie' ? '🎬' : discMedia === 'anime' ? '⛩' : '📺';
   let html = '';
   for (let i = discRendered; i < end; i++) {
     const e = discList[i];
@@ -3765,6 +3843,7 @@ function discRenderMore(n) {
     html += `<div class="disc-card${e.lib ? ' tracked' : ''}" onclick="openDiscoverItem(${i})">
       ${e.lib ? '<div class="in-library-badge">✓ In Library</div>' : ''}
       <div class="disc-count">★ ${e.stars.length}</div>
+      ${discMedia === 'anime' && e.film ? '<div class="disc-film">FILM</div>' : ''}
       ${e.poster
         ? `<img class="disc-poster" src="https://image.tmdb.org/t/p/w185${e.poster}" loading="lazy" alt="" onerror="this.outerHTML='<div class=\\'disc-poster-ph\\'>${icon}</div>'">`
         : `<div class="disc-poster-ph">${icon}</div>`}
@@ -3784,19 +3863,21 @@ async function openDiscoverItem(i) {
   const e = discList[i];
   if (!e || e.header) return;
   discModalItem = e;
-  const isMovie = discMedia === 'movie';
-  const icon = isMovie ? '🎬' : '📺';
+  const isAnime = discMedia === 'anime';
+  const isMovie = discMedia === 'movie' || (isAnime && e.film);
+  const icon = isAnime ? '⛩' : isMovie ? '🎬' : '📺';
+  const kindLabel = isAnime ? (e.film ? 'Anime film' : 'Anime series') : isMovie ? 'Movie' : 'TV series';
   document.getElementById('dm-hero').innerHTML = `
     ${e.poster ? `<img class="dm-poster" src="https://image.tmdb.org/t/p/w342${e.poster}" alt="">` : `<div class="dm-poster-ph">${icon}</div>`}
     <div style="flex:1;min-width:0;">
       <div class="dm-title">${discEsc(e.t)}</div>
-      <div class="dm-meta">${e.year || 'TBA'} · ${isMovie ? 'Movie' : 'TV series'}${e.lib ? ` · In your library (${discEsc(e.lib.status)})` : ''}</div>
+      <div class="dm-meta">${e.year || 'TBA'} · ${kindLabel}${e.lib ? ` · In your library (${discEsc(e.lib.status)})` : ''}</div>
       <div class="dm-overview" id="dm-overview">Loading synopsis…</div>
       ${e.lib
         ? `<button class="btn btn-secondary btn-sm" onclick="discOpenLibrary()">Open in library</button>`
         : `<button class="btn btn-primary btn-sm" onclick="discAddToLibrary()">+ Add to library</button>`}
     </div>`;
-  document.getElementById('dm-stars-label').textContent = `Your stars in this ${isMovie ? 'movie' : 'show'} (${e.stars.length})`;
+  document.getElementById('dm-stars-label').textContent = `Your stars in this ${isAnime ? (e.film ? 'film' : 'anime') : isMovie ? 'movie' : 'show'} (${e.stars.length})`;
   document.getElementById('dm-stars').innerHTML = e.stars.map(({ p, ch }) => {
     const from = p.knownFrom.slice(0, 3).map(k => `<b>${discEsc(k.title)}</b>`).join(', ') + (p.knownFrom.length > 3 ? ` +${p.knownFrom.length - 3} more` : '');
     return `<div class="dm-star" onclick="discOpenPerson(${p.id})">
@@ -3835,6 +3916,14 @@ async function discAddToLibrary() {
   const e = discModalItem;
   if (!e) return;
   closeModal('discover-modal');
+  if (discMedia === 'anime') {
+    // Same as adding anime from a star's filmography: AniList search pre-filled, so seasons/cours are built properly
+    openAddModal('anilist');
+    setSearchSource('anilist');
+    document.getElementById('tmdb-search-input').value = e.t;
+    await searchAnilistAnime();
+    return;
+  }
   const mediaType = discMedia === 'movie' ? 'movie' : 'tv';
   openAddModal('tmdb');
   setTmdbSearchType(mediaType);
@@ -3851,6 +3940,159 @@ document.getElementById('main').addEventListener('scroll', (e) => {
 document.getElementById('sidebar').addEventListener('click', (e) => {
   if (e.target.closest('.nav-item')) closeDrawer();
 });
+
+// ─── Bulk TMDB ID matching ─────────────────────────────────────────────────
+// For entries without a tmdb_id (mostly AniList imports). Anime search /search/tv, like autoMatchTMDB,
+// because fetchProviders / ↻ TMDB use /tv/ endpoints for anime. AniList English/romaji/native titles
+// are used as extra queries and for scoring (native Japanese often equals TMDB's original_name exactly).
+let tmmReview = [];
+function tmdbNorm(str) {
+  return String(str || '').normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+}
+function tmdbScore(results, titles, year) {
+  const qs = [...new Set(titles.map(tmdbNorm).filter(Boolean))];
+  return results.map(r => {
+    const names = [r.name, r.title, r.original_name, r.original_title].map(tmdbNorm).filter(Boolean);
+    let tm = 0.3;
+    for (const q of qs) for (const n of names) {
+      if (n === q) tm = 1;
+      else if (tm < 0.8 && (n.includes(q) || q.includes(n))) tm = 0.8;
+    }
+    const ry = parseInt((r.first_air_date || r.release_date || '').slice(0, 4));
+    const ym = year && ry ? (Math.abs(ry - year) <= 1 ? 1 : 0.5) : 0.5;
+    return { ...r, _score: tm * 0.7 + ym * 0.3 };
+  }).sort((a, b) => b._score - a._score);
+}
+function tmdbIsClear(scored) {
+  const best = scored[0];
+  return !!best && best._score >= 0.75 && (!scored[1] || best._score - scored[1]._score > 0.2);
+}
+async function fetchAnilistTitleMap(ids) {
+  const out = new Map();
+  const query = `query ($ids: [Int]) { Page(perPage: 50) { media(id_in: $ids, type: ANIME) { id format title { romaji english native } startDate { year } } } }`;
+  for (let i = 0; i < ids.length; i += 50) {
+    const chunk = ids.slice(i, i + 50).map(Number).filter(Boolean);
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const res = await fetch('https://graphql.anilist.co', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify({ query, variables: { ids: chunk } })
+        });
+        if (res.status === 429) { await discSleep(5000 * (attempt + 1)); continue; }
+        if (!res.ok) break;
+        const json = await res.json();
+        (json.data?.Page?.media || []).forEach(m => out.set(String(m.id), m));
+        break;
+      } catch (e) { break; }
+    }
+  }
+  return out;
+}
+async function bulkMatchTmdb() {
+  const key = data.settings.tmdb_api_key;
+  if (!key) { showToast('Add your TMDB API key first', 'error'); return; }
+  const targets = data.series.filter(s => !s.tmdb_id);
+  if (!targets.length) { showToast('Every title already has a TMDB ID', 'success'); return; }
+  const statusEl = document.getElementById('tmdb-match-status');
+  const btn = document.getElementById('tmdb-match-btn');
+  btn.disabled = true;
+  statusEl.textContent = 'Looking up AniList titles…';
+
+  const alIds = targets.filter(s => s.type === 'anime' && s.anilist_id).map(s => s.anilist_id);
+  const al = alIds.length ? await fetchAnilistTitleMap(alIds) : new Map();
+
+  let matched = 0, notFound = 0, films = 0;
+  tmmReview = [];
+  try {
+    for (let i = 0; i < targets.length; i++) {
+      const s = targets[i];
+      statusEl.textContent = `Matching ${i + 1}/${targets.length}… (${matched} matched)`;
+      const meta = al.get(String(s.anilist_id));
+      if (s.type === 'anime' && meta?.format === 'MOVIE') { films++; continue; } // anime films can't use the /tv/ cast pipeline
+      const isMovie = s.type === 'movie';
+      const titles = [s.title, meta?.title?.english, meta?.title?.romaji, meta?.title?.native];
+      const year = parseInt(s.year) || meta?.startDate?.year || null;
+      const queries = [...new Set([s.title, meta?.title?.english, meta?.title?.romaji].filter(Boolean))];
+      const found = new Map();
+      let scored = [];
+      for (const q of queries) {
+        const json = await discFetchJSON(`https://api.themoviedb.org/3/search/${isMovie ? 'movie' : 'tv'}?api_key=${key}&query=${encodeURIComponent(q)}`);
+        (json?.results || []).slice(0, 6).forEach(r => found.set(r.id, r));
+        scored = tmdbScore([...found.values()], titles, year);
+        if (tmdbIsClear(scored)) break;
+      }
+      if (!scored.length) { notFound++; continue; }
+      if (tmdbIsClear(scored)) {
+        s.tmdb_id = String(scored[0].id);
+        matched++;
+        await fetchProviders(s.id, s.tmdb_id);
+      } else {
+        tmmReview.push({ seriesId: s.id, candidates: scored.slice(0, 5), isMovie, year });
+      }
+      await discSleep(120);
+    }
+  } catch (e) {
+    console.error(e);
+    showToast(`Matching stopped — ${e.message}`, 'error');
+  }
+  btn.disabled = false;
+  const bits = [`✓ ${matched} matched`];
+  if (tmmReview.length) bits.push(`${tmmReview.length} to confirm`);
+  if (notFound) bits.push(`${notFound} not on TMDB`);
+  if (films) bits.push(`${films} anime film${films !== 1 ? 's' : ''} skipped`);
+  statusEl.textContent = bits.join(' · ');
+  saveToDrive();
+  updateCounts();
+  if (tmmReview.length) openTmdbMatchReview();
+  else showToast(`Matched ${matched} title${matched !== 1 ? 's' : ''}`, 'success');
+}
+function openTmdbMatchReview() {
+  document.getElementById('tmm-intro').textContent =
+    `${matchedIntroCount()} Tap the right poster for each, or skip if none fit. Anything skipped can be set later via Edit.`;
+  document.getElementById('tmm-list').innerHTML = tmmReview.map((r, idx) => {
+    const s = data.series.find(x => x.id === r.seriesId);
+    if (!s) return '';
+    const icon = r.isMovie ? '🎬' : s.type === 'anime' ? '⛩' : '📺';
+    const cands = r.candidates.map(c => `
+      <div class="tmm-cand" onclick="tmmPick(${idx}, ${c.id})" title="${discEsc(c.name || c.title)}">
+        ${c.poster_path ? `<img src="https://image.tmdb.org/t/p/w154${c.poster_path}" loading="lazy" alt="">` : `<div class="tmm-ph">${icon}</div>`}
+        <div class="tmm-cand-name">${discEsc(c.name || c.title)}</div>
+        <div class="tmm-cand-year">${(c.first_air_date || c.release_date || '').slice(0, 4) || '—'}${(c.origin_country || []).length ? ' · ' + discEsc(c.origin_country.join('/')) : (c.original_language ? ' · ' + discEsc(c.original_language.toUpperCase()) : '')}</div>
+      </div>`).join('');
+    return `<div class="tmm-row" id="tmm-row-${idx}">
+      <div class="tmm-head">
+        <div><div class="tmm-title">${discEsc(s.title)}</div><div class="tmm-sub">${icon} ${s.year || 'Year unknown'}</div></div>
+        <button class="btn btn-ghost btn-sm" onclick="tmmSkip(${idx})">Skip</button>
+      </div>
+      <div class="tmm-cands">${cands}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('tmdb-match-modal').classList.remove('hidden');
+}
+function matchedIntroCount() {
+  const n = tmmReview.length;
+  return `${n} title${n !== 1 ? 's' : ''} had more than one likely match.`;
+}
+function tmmRemoveRow(idx) {
+  document.getElementById(`tmm-row-${idx}`)?.remove();
+  tmmReview[idx] = null;
+  if (tmmReview.every(r => !r)) {
+    closeModal('tmdb-match-modal');
+    showToast('All matches reviewed', 'success');
+  }
+}
+async function tmmPick(idx, tmdbId) {
+  const r = tmmReview[idx];
+  if (!r) return;
+  const s = data.series.find(x => x.id === r.seriesId);
+  tmmRemoveRow(idx);
+  if (!s) return;
+  s.tmdb_id = String(tmdbId);
+  await fetchProviders(s.id, s.tmdb_id);
+  saveToDrive();
+}
+function tmmSkip(idx) { tmmRemoveRow(idx); }
 </script>
 </body>
 </html>
