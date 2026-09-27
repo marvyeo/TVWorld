@@ -330,8 +330,61 @@
   .to-top { position:fixed; right:28px; bottom:28px; z-index:60; background:var(--card); border:1px solid var(--border); color:var(--text); border-radius:24px; padding:10px 16px; font-size:12px; font-weight:600; cursor:pointer; box-shadow:0 6px 20px rgba(0,0,0,0.45); opacity:0; pointer-events:none; transform:translateY(8px); transition:opacity 0.2s, transform 0.2s, border-color 0.15s; }
   .to-top.show { opacity:1; pointer-events:auto; transform:translateY(0); }
   .to-top:hover { border-color:var(--accent); }
-  .hide-completed-switch { display:inline-flex; align-items:center; gap:7px; font-size:12px; color:var(--muted); cursor:pointer; user-select:none; margin-left:auto; align-self:center; }
-  .hide-completed-switch input { accent-color:var(--accent); width:15px; height:15px; cursor:pointer; }
+  .hide-status-row { display:flex; gap:6px; align-items:center; margin-left:auto; flex-wrap:wrap; }
+  .hide-label { font-size:11px; color:var(--muted); margin-right:2px; }
+  .type-pill.active-hide { background:rgba(248,113,113,0.12); border-color:var(--dropped); color:var(--dropped); text-decoration:line-through; text-decoration-thickness:1px; }
+
+  /* ── Calendar ── */
+  .cal-bar { display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between; margin-bottom:14px; }
+  .cal-nav { display:flex; align-items:center; gap:8px; }
+  .cal-arrow { font-size:18px; padding:4px 12px; }
+  .cal-month { font-family:'Syne',sans-serif; font-weight:700; font-size:18px; min-width:170px; text-align:center; }
+  .cal-modes { display:flex; gap:6px; }
+  .cal-modes .type-pill.on { background:rgba(124,106,245,0.15); border-color:var(--accent); color:var(--accent2); }
+  .cal-filters { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:10px; }
+  .cal-status { display:flex; align-items:center; gap:10px; font-size:11px; color:var(--muted); margin-bottom:16px; min-height:28px; }
+  .cal-day { margin-bottom:18px; }
+  .cal-day-head { display:flex; align-items:baseline; gap:10px; padding:6px 2px 8px; border-bottom:1px solid var(--border); margin-bottom:8px; position:sticky; top:-28px; background:var(--bg); z-index:2; }
+  .cal-day-date { font-family:'Syne',sans-serif; font-weight:700; font-size:14px; }
+  .cal-day-count { font-size:11px; color:var(--muted); }
+  .cal-day.today .cal-day-date { color:var(--accent2); }
+  .cal-day.this-week .cal-day-head { border-bottom-color:rgba(124,106,245,0.45); }
+  .cal-tag { font-size:10px; font-weight:700; padding:2px 7px; border-radius:20px; background:rgba(124,106,245,0.15); color:var(--accent2); }
+  .cal-week-label { font-family:'Syne',sans-serif; font-size:12px; font-weight:700; color:var(--muted); letter-spacing:0.06em; text-transform:uppercase; margin:22px 0 10px; }
+  .cal-week-label:first-child { margin-top:0; }
+  .cal-item { display:flex; gap:12px; align-items:center; padding:8px 10px; border-radius:12px; cursor:pointer; transition:background 0.1s; }
+  .cal-item:hover { background:var(--surface); }
+  .cal-thumb { width:40px; height:60px; border-radius:6px; object-fit:cover; background:var(--border); flex-shrink:0; }
+  .cal-thumb-ph { width:40px; height:60px; border-radius:6px; background:var(--border); flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:16px; color:var(--muted); }
+  .cal-item-main { flex:1; min-width:0; }
+  .cal-item-title { font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .cal-item-sub { font-size:11px; color:var(--muted); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .cal-item-side { display:flex; flex-direction:column; align-items:flex-end; gap:4px; flex-shrink:0; }
+  .cal-kind { font-size:10px; font-weight:700; padding:2px 7px; border-radius:20px; white-space:nowrap; }
+  .cal-kind.tv { background:rgba(96,165,250,0.12); color:var(--plan); }
+  .cal-kind.anime { background:rgba(176,140,248,0.12); color:var(--accent2); }
+  .cal-kind.cinema { background:rgba(244,114,182,0.15); color:#f472b6; }
+  .cal-kind.digital { background:rgba(245,158,11,0.12); color:#f59e0b; }
+  .cal-watched { font-size:10px; color:var(--watching); font-weight:600; }
+  .cal-empty { text-align:center; color:var(--muted); font-size:13px; padding:40px 10px; }
+  .cal-grid { display:grid; grid-template-columns:repeat(7, minmax(0,1fr)); gap:4px; margin-bottom:18px; }
+  .cal-dow { font-size:10px; font-weight:700; color:var(--muted); text-align:center; padding:4px 0; text-transform:uppercase; letter-spacing:0.05em; }
+  .cal-cell { min-height:96px; background:var(--card); border:1px solid var(--border); border-radius:8px; padding:5px; cursor:pointer; overflow:hidden; transition:border-color 0.1s; }
+  .cal-cell:hover { border-color:var(--accent); }
+  .cal-cell.out { opacity:0.35; }
+  .cal-cell.today { border-color:var(--accent); background:rgba(124,106,245,0.08); }
+  .cal-cell.sel { outline:2px solid var(--accent2); outline-offset:-1px; }
+  .cal-cell-num { font-size:11px; font-weight:700; color:var(--muted); margin-bottom:3px; }
+  .cal-cell.today .cal-cell-num { color:var(--accent2); }
+  .cal-chip { font-size:10px; line-height:1.25; padding:2px 5px; border-radius:4px; margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .cal-chip.tv { background:rgba(96,165,250,0.14); color:#bfdbfe; }
+  .cal-chip.anime { background:rgba(176,140,248,0.14); color:#ddd6fe; }
+  .cal-chip.cinema { background:rgba(244,114,182,0.16); color:#fbcfe8; }
+  .cal-chip.digital { background:rgba(245,158,11,0.14); color:#fde68a; }
+  .cal-more { font-size:10px; color:var(--muted); padding-left:3px; }
+  .cal-dots { display:none; gap:3px; flex-wrap:wrap; }
+  .cal-dot { width:6px; height:6px; border-radius:50%; }
+  .cal-dot.tv { background:var(--plan); } .cal-dot.anime { background:var(--accent2); } .cal-dot.cinema { background:#f472b6; } .cal-dot.digital { background:#f59e0b; }
 
   /* ── Discover pages ── */
   .disc-scan { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:14px 16px; margin-bottom:18px; display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
@@ -430,7 +483,8 @@
     .sort-bar { flex-wrap:nowrap; overflow-x:auto; padding-bottom:4px; margin-bottom:12px; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
     .sort-bar::-webkit-scrollbar { display:none; }
     .sort-btn { flex-shrink:0; padding:7px 12px; }
-    .hide-completed-switch, .disc-switch { flex-shrink:0; margin-left:8px; white-space:nowrap; }
+    .disc-switch { flex-shrink:0; margin-left:8px; white-space:nowrap; }
+    .hide-status-row { margin-left:0; width:100%; margin-top:4px; }
     .type-toggles { margin-bottom:10px; }
 
     /* Grids */
@@ -472,6 +526,19 @@
     .dm-title { font-size:18px; }
     .dm-stars { max-height:none; }
 
+    /* Calendar */
+    .cal-bar { gap:10px; }
+    .cal-nav { width:100%; justify-content:space-between; }
+    .cal-month { min-width:0; font-size:16px; flex:1; }
+    .cal-modes { width:100%; }
+    .cal-modes .type-pill { flex:1; justify-content:center; }
+    .cal-active-only { width:100%; margin-left:0; }
+    .cal-day-head { top:-12px; }
+    .cal-grid { gap:2px; }
+    .cal-cell { min-height:52px; padding:4px 3px; }
+    .cal-chip, .cal-more { display:none; }
+    .cal-dots { display:flex; }
+
     /* Toast above the bottom nav */
     #toast { bottom:calc(80px + env(safe-area-inset-bottom)); white-space:normal; max-width:calc(100vw - 32px); text-align:center; }
     #toast:not(.show) { transform:translateX(-50%) translateY(calc(100% + 140px)); }
@@ -493,7 +560,7 @@
 <nav id="bottom-nav">
   <div class="bn-item" data-bn="all" onclick="switchView('all')"><span class="bn-icon">🎬</span>All</div>
   <div class="bn-item" data-bn="watching" onclick="switchView('watching')"><span class="bn-icon">▶️</span>Watching</div>
-  <div class="bn-item" data-bn="plan" onclick="switchView('plan')"><span class="bn-icon">🔖</span>Plan</div>
+  <div class="bn-item" data-bn="calendar" onclick="switchView('calendar')"><span class="bn-icon">📅</span>Calendar</div>
   <div class="bn-item" data-bn="discover" onclick="switchView(lastDiscoverView)"><span class="bn-icon">🔭</span>Discover</div>
   <div class="bn-item" data-bn="more" onclick="openDrawer()"><span class="bn-icon">☰</span>More</div>
 </nav>
@@ -530,6 +597,9 @@
       </div>
       <div class="nav-item" data-view="stars" onclick="switchView('stars')">
         <span>⭐</span> Stars <span class="count" id="count-stars">0</span>
+      </div>
+      <div class="nav-item" data-view="calendar" onclick="switchView('calendar')">
+        <span>📅</span> Calendar
       </div>
       <div class="nav-section">Discover</div>
       <div class="nav-item" data-view="discover-tv" onclick="switchView('discover-tv')">
@@ -600,6 +670,12 @@
         <div class="type-pill active-tv"    data-type="tv"    onclick="toggleType('tv',this)">📺 TV</div>
         <div class="type-pill active-anime" data-type="anime" onclick="toggleType('anime',this)">⛩ Anime</div>
         <div class="type-pill active-movie" data-type="movie" onclick="toggleType('movie',this)">🎬 Movie</div>
+        <div class="hide-status-row" id="hide-status-row">
+          <span class="hide-label">Hide:</span>
+          <div class="type-pill" data-hide-status="Plan to Watch" onclick="toggleHideStatus('Plan to Watch')">Plan to Watch</div>
+          <div class="type-pill" data-hide-status="Completed" onclick="toggleHideStatus('Completed')">Completed</div>
+          <div class="type-pill" data-hide-status="Dropped" onclick="toggleHideStatus('Dropped')">Dropped</div>
+        </div>
       </div>
       <div class="sort-bar">
         <span style="font-size:11px;color:var(--muted);align-self:center;">Sort:</span>
@@ -609,7 +685,6 @@
         <button class="sort-btn" data-sort="za" onclick="setSort('za',this)">Z → A</button>
         <button class="sort-btn" data-sort="year-desc" onclick="setSort('year-desc',this)">Year (New)</button>
         <button class="sort-btn" data-sort="year-asc" onclick="setSort('year-asc',this)">Year (Old)</button>
-        <label class="hide-completed-switch" id="hide-completed-wrap"><input type="checkbox" id="hide-completed" onchange="setHideCompleted(this.checked)"> Hide completed</label>
       </div>
 
       <div class="series-grid" id="series-grid"></div>
@@ -641,6 +716,37 @@
         <button class="sort-btn" data-stars-sort="za" onclick="setStarsSort('za',this)">Z → A</button>
       </div>
       <div class="stars-grid" id="stars-grid"></div>
+    </div>
+
+    <!-- Calendar view -->
+    <div id="calendar-view" class="hidden">
+      <div class="page-header">
+        <div class="page-title">Calendar</div>
+        <div class="page-sub" id="cal-sub">New episodes and movie releases from your library</div>
+      </div>
+      <div class="cal-bar">
+        <div class="cal-nav">
+          <button class="btn btn-ghost btn-sm cal-arrow" id="cal-prev" onclick="calShiftMonth(-1)" aria-label="Previous month">‹</button>
+          <div class="cal-month" id="cal-month"></div>
+          <button class="btn btn-ghost btn-sm cal-arrow" id="cal-next" onclick="calShiftMonth(1)" aria-label="Next month">›</button>
+          <button class="btn btn-secondary btn-sm" onclick="calGoToday()">Today</button>
+        </div>
+        <div class="cal-modes">
+          <div class="type-pill" id="cal-mode-list" onclick="calSetMode('list')">☰ List</div>
+          <div class="type-pill" id="cal-mode-month" onclick="calSetMode('month')">▦ Month</div>
+        </div>
+      </div>
+      <div class="cal-filters">
+        <div class="type-pill active-tv" data-cal-type="tv" onclick="calToggleType('tv', this)">📺 TV</div>
+        <div class="type-pill active-anime" data-cal-type="anime" onclick="calToggleType('anime', this)">⛩ Anime</div>
+        <div class="type-pill active-movie" data-cal-type="movie" onclick="calToggleType('movie', this)">🎬 Movies</div>
+        <label class="disc-switch cal-active-only"><input type="checkbox" id="cal-active-only" onchange="calSetActiveOnly(this.checked)"> Watching &amp; Plan to Watch only</label>
+      </div>
+      <div class="cal-status">
+        <span id="cal-status-text"></span>
+        <button class="btn btn-ghost btn-sm" id="cal-refresh-btn" onclick="calRefresh(true)">↻ Refresh dates</button>
+      </div>
+      <div id="cal-body"></div>
     </div>
 
     <!-- Discover view (TV / Movies from tracked stars) -->
@@ -1122,7 +1228,13 @@ let personFilmData = { movies: [], tv: [] };
 let currentFilmTab = 'movies';
 let filmographyReturnState = null; // { personId, scrollTop, tab } — set when adding from filmography
 let quickAddPayload = null;
-let hideCompleted = (() => { try { return localStorage.getItem('tvworld-hide-completed') === '1'; } catch (e) { return false; } })();
+let hiddenStatuses = (() => {
+  try {
+    const saved = localStorage.getItem('tvworld-hide-statuses');
+    if (saved) return new Set(JSON.parse(saved));
+    return new Set(localStorage.getItem('tvworld-hide-completed') === '1' ? ['Completed'] : []); // carry over the old toggle
+  } catch (e) { return new Set(); }
+})();
 let detailReturn = null; // { view, scroll } — where ← Back in the detail view should return to
 let tmdbRequestToken = null;
 let tmdbSessionId = null;
@@ -1300,22 +1412,25 @@ function switchView(view) {
   const isStars = view === 'stars';
   const isSettings = view === 'settings';
   const isDiscover = view === 'discover-tv' || view === 'discover-movie' || view === 'discover-anime';
-  document.getElementById('list-view').classList.toggle('hidden', isSettings || isStars || isDiscover);
+  const isCalendar = view === 'calendar';
+  document.getElementById('list-view').classList.toggle('hidden', isSettings || isStars || isDiscover || isCalendar);
+  document.getElementById('calendar-view').classList.toggle('hidden', !isCalendar);
   document.getElementById('stars-view').classList.toggle('hidden', !isStars);
   document.getElementById('discover-view').classList.toggle('hidden', !isDiscover);
   document.getElementById('detail-view').classList.add('hidden');
   document.getElementById('settings-view').classList.toggle('hidden', !isSettings);
 
-  if (!isSettings && !isStars && !isDiscover) {
+  if (!isSettings && !isStars && !isDiscover && !isCalendar) {
     const titles = { all:'All Series', watching:'Watching', plan:'Plan to Watch', paused:'Paused', completed:'Completed', dropped:'Dropped' };
     document.getElementById('list-title').textContent = titles[view] || 'All Series';
-    document.getElementById('hide-completed-wrap').style.display = view === 'all' ? '' : 'none';
-    document.getElementById('hide-completed').checked = hideCompleted;
+    document.getElementById('hide-status-row').style.display = view === 'all' ? '' : 'none';
+    syncHideStatusPills();
     renderGrid();
     renderContinueStrip();
     document.getElementById('continue-section').classList.toggle('hidden', view !== 'all' && view !== 'watching');
   }
   if (isStars) renderStarsGrid();
+  if (isCalendar) openCalendarView();
   if (isDiscover) {
     lastDiscoverView = view;
     document.getElementById('disc-media-tv').className = 'type-pill' + (view === 'discover-tv' ? ' active-tv' : '');
@@ -1331,7 +1446,7 @@ function switchView(view) {
 let lastDiscoverView = 'discover-tv';
 function updateBottomNav() {
   const v = currentView;
-  const key = ['all', 'watching', 'plan'].includes(v) ? v : v.startsWith('discover') ? 'discover' : 'more';
+  const key = ['all', 'watching', 'calendar'].includes(v) ? v : v.startsWith('discover') ? 'discover' : 'more';
   document.querySelectorAll('.bn-item').forEach(el => el.classList.toggle('active', el.dataset.bn === key));
 }
 function openDrawer() { document.body.classList.add('drawer-open'); }
@@ -1363,7 +1478,7 @@ function renderGrid() {
     if (currentView === 'paused' && s.status !== 'Paused') return false;
     if (currentView === 'completed' && s.status !== 'Completed') return false;
     if (currentView === 'dropped' && s.status !== 'Dropped') return false;
-    if (currentView === 'all' && hideCompleted && s.status === 'Completed') return false;
+    if (currentView === 'all' && hiddenStatuses.has(s.status)) return false;
     if (!activeTypes.has(s.type || 'tv')) return false;
     if (query && !s.title.toLowerCase().includes(query)) return false;
     if (genreFilter && !(s.genres||[]).includes(genreFilter)) return false;
@@ -1486,6 +1601,7 @@ function openDetail(id) {
   document.getElementById('settings-view').classList.add('hidden');
   document.getElementById('stars-view').classList.add('hidden');
   document.getElementById('discover-view').classList.add('hidden');
+  document.getElementById('calendar-view').classList.add('hidden');
   document.getElementById('detail-view').classList.remove('hidden');
 
   document.getElementById('detail-title').textContent = s.title;
@@ -1685,10 +1801,14 @@ function refreshDetailStatus(s) {
   }
   showToast(`Moved to ${s.status}`);
 }
-function setHideCompleted(on) {
-  hideCompleted = on;
-  try { localStorage.setItem('tvworld-hide-completed', on ? '1' : '0'); } catch (e) {}
+function toggleHideStatus(status) {
+  if (hiddenStatuses.has(status)) hiddenStatuses.delete(status); else hiddenStatuses.add(status);
+  try { localStorage.setItem('tvworld-hide-statuses', JSON.stringify([...hiddenStatuses])); } catch (e) {}
+  syncHideStatusPills();
   renderGrid();
+}
+function syncHideStatusPills() {
+  document.querySelectorAll('[data-hide-status]').forEach(el => el.classList.toggle('active-hide', hiddenStatuses.has(el.dataset.hideStatus)));
 }
 
 function updateDetailStatus() {
@@ -4093,6 +4213,445 @@ async function tmmPick(idx, tmdbId) {
   saveToDrive();
 }
 function tmmSkip(idx) { tmmRemoveRow(idx); }
+
+// ─── Calendar ──────────────────────────────────────────────────────────────
+// Events come from two places:
+//   1. Episode air dates already stored in the library (seasons[].episodes[].air_date)
+//   2. A per-browser IndexedDB cache of fresh TMDB dates (tvworld-calendar):
+//        "tv:{id}"    → { at, ended, eps: [[season, episode, airDate, name]] }   seasons airing in the window
+//        "movie:{id}" → { at, primary, theatrical, theatricalSG, digital, digitalCountry }
+//      Library data is never modified by the calendar — ↻ TMDB on a show still adds new episodes to your tracker.
+const CAL_START = '2025-06-01';
+const CAL_MONTHS_AHEAD = 18;
+const CAL_DAY = 86400000;
+const CAL_REFRESH_HOURS = 12;
+let calDb = null;
+let cal = { items: new Map(), lastRefresh: null, loaded: false, refreshing: false };
+let calMonth = null;          // Date at the 1st of the displayed month
+let calMode = (() => { try { return localStorage.getItem('tvworld-cal-mode') || 'list'; } catch (e) { return 'list'; } })();
+let calTypes = new Set(['tv', 'anime', 'movie']);
+let calActiveOnly = false;
+let calSelectedDay = null;
+let calLastEvents = [];
+
+function calOpenDb() {
+  if (calDb) return Promise.resolve(calDb);
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open('tvworld-calendar', 1);
+    req.onupgradeneeded = () => {
+      ['items', 'meta'].forEach(n => { if (!req.result.objectStoreNames.contains(n)) req.result.createObjectStore(n); });
+    };
+    req.onsuccess = () => { calDb = req.result; resolve(calDb); };
+    req.onerror = () => reject(req.error);
+  });
+}
+async function calTx(store, mode, fn) {
+  const db = await calOpenDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, mode);
+    const req = fn(tx.objectStore(store));
+    let result;
+    if (req) req.onsuccess = () => { result = req.result; };
+    tx.oncomplete = () => resolve(result);
+    tx.onerror = () => reject(tx.error);
+  });
+}
+async function calLoad() {
+  if (cal.loaded) return;
+  try {
+    const db = await calOpenDb();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction('items', 'readonly');
+      const st = tx.objectStore('items');
+      const k = st.getAllKeys(), v = st.getAll();
+      tx.oncomplete = () => { k.result.forEach((key, i) => cal.items.set(key, v.result[i])); resolve(); };
+      tx.onerror = () => reject(tx.error);
+    });
+    cal.lastRefresh = (await calTx('meta', 'readonly', st => st.get('lastRefresh'))) || null;
+  } catch (e) { console.error('Calendar cache unavailable', e); }
+  cal.loaded = true;
+}
+
+// ── Date helpers (local dates as YYYY-MM-DD) ──
+const calIso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const calParse = (iso) => { const [y, m, d] = iso.split('-').map(Number); return new Date(y, m - 1, d); };
+const calToday = () => calIso(new Date());
+function calWeekStart(iso) { const d = calParse(iso); const dow = (d.getDay() + 6) % 7; d.setDate(d.getDate() - dow); return calIso(d); }
+function calMaxIso() { const d = new Date(); d.setMonth(d.getMonth() + CAL_MONTHS_AHEAD); return calIso(d); }
+function calFmtDay(iso) { return calParse(iso).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' }); }
+
+// ── Refresh from TMDB ──
+function calRefreshTargets(force) {
+  const now = Date.now();
+  const shows = [], movies = [];
+  for (const s of data.series) {
+    if (!s.tmdb_id || s.status === 'Dropped') continue;
+    if (s.type === 'movie') {
+      const yr = parseInt(s.year) || 0;
+      if (yr && yr < 2024) continue; // released long before the window
+      const key = `movie:${s.tmdb_id}`;
+      const c = cal.items.get(key);
+      const recent = c && [c.theatrical, c.digital, c.primary].some(d => d && d >= calIso(new Date(now - 60 * CAL_DAY)));
+      const maxAge = (!c || recent || !c.primary) ? CAL_REFRESH_HOURS * 3600000 : 30 * CAL_DAY;
+      if (force || !c || now - c.at > maxAge) movies.push({ s, key });
+    } else {
+      const key = `tv:${s.tmdb_id}`;
+      const c = cal.items.get(key);
+      const maxAge = c?.ended ? 30 * CAL_DAY : CAL_REFRESH_HOURS * 3600000;
+      if (!c || now - c.at > maxAge || (force && !c.ended)) shows.push({ s, key });
+    }
+  }
+  return { shows, movies };
+}
+async function calFetchShow(id, key) {
+  const json = await discFetchJSON(`https://api.themoviedb.org/3/tv/${id}?api_key=${key}`);
+  if (!json) return { at: Date.now(), ended: true, eps: [] };
+  const last = json.last_episode_to_air, next = json.next_episode_to_air;
+  const seasons = (json.seasons || []).filter(se => se.season_number > 0);
+  const maxSeason = Math.max(0, ...seasons.map(se => se.season_number));
+  const want = seasons.filter(se =>
+    (se.air_date && se.air_date >= '2025-01-01') ||
+    (!se.air_date && se.season_number === maxSeason) ||
+    se.season_number === next?.season_number ||
+    (se.season_number === last?.season_number && last?.air_date >= CAL_START)
+  ).map(se => se.season_number);
+  const eps = [];
+  for (const n of [...new Set(want)]) {
+    const sj = await discFetchJSON(`https://api.themoviedb.org/3/tv/${id}/season/${n}?api_key=${key}`);
+    (sj?.episodes || []).forEach(e => { if (e.air_date && e.air_date >= CAL_START) eps.push([n, e.episode_number, e.air_date, e.name || '']); });
+  }
+  const ended = ['Ended', 'Canceled'].includes(json.status) && !next && (!last?.air_date || last.air_date < CAL_START);
+  return { at: Date.now(), ended, eps };
+}
+async function calFetchMovie(id, key) {
+  const json = await discFetchJSON(`https://api.themoviedb.org/3/movie/${id}?api_key=${key}&append_to_response=release_dates`);
+  if (!json) return { at: Date.now(), primary: null };
+  const byCountry = (cc) => (json.release_dates?.results || []).find(r => r.iso_3166_1 === cc)?.release_dates || [];
+  const first = (list, types) => list.filter(r => types.includes(r.type) && r.release_date).map(r => r.release_date.slice(0, 10)).sort()[0] || null;
+  const sg = byCountry('SG'), us = byCountry('US');
+  const theatricalSG = first(sg, [3, 2]);
+  const digitalSG = first(sg, [4]);
+  const digitalUS = first(us, [4]);
+  return {
+    at: Date.now(),
+    primary: json.release_date || null,
+    theatrical: theatricalSG || json.release_date || null,
+    theatricalSG: !!theatricalSG,
+    digital: digitalSG || digitalUS || null,
+    digitalCountry: digitalSG ? 'SG' : digitalUS ? 'US' : null,
+  };
+}
+async function calRefresh(force) {
+  if (cal.refreshing) return;
+  const key = data.settings.tmdb_api_key;
+  if (!key) { calSetStatus('Add your TMDB API key in Settings to load release dates.'); return; }
+  await calLoad();
+  const { shows, movies } = calRefreshTargets(force);
+  const jobs = [...shows.map(j => ({ ...j, kind: 'tv' })), ...movies.map(j => ({ ...j, kind: 'movie' }))];
+  if (!jobs.length) {
+    cal.lastRefresh = Date.now();
+    try { await calTx('meta', 'readwrite', st => st.put(cal.lastRefresh, 'lastRefresh')); } catch (e) {}
+    calSetStatus();
+    if (force) showToast('Release dates are up to date', 'success');
+    return;
+  }
+  cal.refreshing = true;
+  document.getElementById('cal-refresh-btn').disabled = true;
+  let done = 0, failed = 0, i = 0;
+  const pending = [];
+  const lane = async () => {
+    while (i < jobs.length) {
+      const job = jobs[i++];
+      try {
+        const val = job.kind === 'tv' ? await calFetchShow(job.s.tmdb_id, key) : await calFetchMovie(job.s.tmdb_id, key);
+        cal.items.set(job.key, val);
+        pending.push([job.key, val]);
+      } catch (e) {
+        failed++;
+        if (e.fatal) { i = jobs.length; showToast('TMDB key rejected — check Settings', 'error'); }
+      }
+      done++;
+      if (done % 10 === 0 || done === jobs.length) calSetStatus(`Updating release dates… ${done}/${jobs.length}`);
+    }
+  };
+  await Promise.all(Array.from({ length: 5 }, lane));
+  try { await calTx('items', 'readwrite', st => { pending.forEach(([k, v]) => st.put(v, k)); }); } catch (e) { console.error(e); }
+  cal.lastRefresh = Date.now();
+  try { await calTx('meta', 'readwrite', st => st.put(cal.lastRefresh, 'lastRefresh')); } catch (e) {}
+  cal.refreshing = false;
+  document.getElementById('cal-refresh-btn').disabled = false;
+  calSetStatus(failed ? `${failed} title${failed !== 1 ? 's' : ''} couldn't be updated.` : null);
+  // Re-render; jump to this week only if the user hasn't started scrolling yet
+  if (currentView === 'calendar') renderCalendar(document.getElementById('main').scrollTop > 40);
+}
+function calSetStatus(text) {
+  const el = document.getElementById('cal-status-text');
+  if (!el) return;
+  if (text) { el.textContent = text; return; }
+  el.textContent = cal.lastRefresh
+    ? `Dates updated ${new Date(cal.lastRefresh).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}`
+    : 'Release dates not loaded yet';
+}
+
+// ── Build events ──
+function calBuildEvents() {
+  const min = CAL_START, max = calMaxIso();
+  const inWindow = (d) => d && d >= min && d <= max;
+  const events = [];
+  for (const s of data.series) {
+    const type = s.type || 'tv';
+    if (s.status === 'Dropped' || !calTypes.has(type)) continue;
+    if (calActiveOnly && s.status !== 'Watching' && s.status !== 'Plan to Watch') continue;
+
+    if (type === 'movie') {
+      const c = s.tmdb_id ? cal.items.get(`movie:${s.tmdb_id}`) : null;
+      if (!c) continue;
+      if (inWindow(c.theatrical)) events.push({ date: c.theatrical, s, kind: 'cinema', label: c.theatricalSG ? 'In cinemas (SG)' : 'Released' });
+      if (inWindow(c.digital) && c.digital !== c.theatrical) events.push({ date: c.digital, s, kind: 'digital', label: `Digital release${c.digitalCountry === 'US' ? ' (US)' : ''}` });
+      continue;
+    }
+
+    // Episodes: library first, then fresh TMDB dates
+    const byEp = new Map();   // TV: "S|E" → episode (TMDB date wins, library keeps watched state)
+    const libDates = new Set();
+    (s.seasons || []).forEach(se => (se.episodes || []).forEach(ep => {
+      if (!ep.air_date) return;
+      libDates.add(ep.air_date);
+      byEp.set(`${se.season_number}|${ep.episode_number}`, { date: ep.air_date, season: se.season_number, ep: ep.episode_number, name: ep.title, watched: !!ep.watched });
+    }));
+    const c = s.tmdb_id ? cal.items.get(`tv:${s.tmdb_id}`) : null;
+    (c?.eps || []).forEach(([sn, en, date, name]) => {
+      const k = `${sn}|${en}`;
+      if (type === 'anime') {
+        // Anime seasons follow AniList cours, so TMDB numbering differs — only fill days the library doesn't cover
+        if (!libDates.has(date)) byEp.set('t' + k, { date, season: sn, ep: en, name, watched: false, tmdbNumbering: true });
+      } else {
+        const prev = byEp.get(k);
+        byEp.set(k, { date, season: sn, ep: en, name: name || prev?.name, watched: !!prev?.watched });
+      }
+    });
+    // Group per show per day
+    const perDay = new Map();
+    byEp.forEach(e => {
+      if (!inWindow(e.date)) return;
+      if (!perDay.has(e.date)) perDay.set(e.date, []);
+      perDay.get(e.date).push(e);
+    });
+    perDay.forEach((eps, date) => {
+      eps.sort((a, b) => a.season - b.season || a.ep - b.ep);
+      events.push({ date, s, kind: type === 'anime' ? 'anime' : 'tv', eps });
+    });
+  }
+  events.sort((a, b) => a.date.localeCompare(b.date) || calKindOrder(a) - calKindOrder(b) || a.s.title.localeCompare(b.s.title));
+  return events;
+}
+const calKindOrder = (e) => ({ cinema: 0, digital: 1, tv: 2, anime: 3 }[e.kind]);
+const calPad = (n) => String(n).padStart(2, '0');
+function calEpLabel(ev) {
+  const eps = ev.eps;
+  const first = eps[0], last = eps[eps.length - 1];
+  const code = (e) => `S${calPad(e.season)}E${calPad(e.ep)}`;
+  if (eps.every(e => e.tmdbNumbering)) {
+    // TMDB numbers anime differently from your AniList seasons, so skip the code and just name it
+    if (eps.length === 1) return first.name && !/^Episode \d+$/i.test(first.name) ? `New episode · ${first.name}` : 'New episode';
+    return `${eps.length} new episodes`;
+  }
+  if (eps.length === 1) {
+    const nm = first.name && !/^Episode \d+$/i.test(first.name) ? ` · ${first.name}` : '';
+    return code(first) + nm;
+  }
+  const range = first.season === last.season ? `${code(first)}–E${calPad(last.ep)}` : `${code(first)} – ${code(last)}`;
+  return `${range} · ${eps.length} episodes`;
+}
+function calShortLabel(ev) {
+  if (ev.kind === 'cinema') return `🎬 ${ev.s.title}`;
+  if (ev.kind === 'digital') return `💻 ${ev.s.title}`;
+  const e = ev.eps[0];
+  return `${ev.s.title} ${ev.eps.length > 1 ? `×${ev.eps.length}` : e.tmdbNumbering ? '' : `S${e.season}E${e.ep}`}`.trim();
+}
+
+// ── View ──
+async function openCalendarView() {
+  if (!calMonth) calGoToday(true);
+  calSyncControls();
+  if (!cal.loaded) {
+    document.getElementById('cal-body').innerHTML = '<div class="cal-empty">Loading…</div>';
+    await calLoad();
+  }
+  calSetStatus();
+  renderCalendar();
+  const stale = !cal.lastRefresh || Date.now() - cal.lastRefresh > CAL_REFRESH_HOURS * 3600000;
+  if (stale) calRefresh(false);
+}
+function calSyncControls() {
+  document.getElementById('cal-mode-list').classList.toggle('on', calMode === 'list');
+  document.getElementById('cal-mode-month').classList.toggle('on', calMode === 'month');
+  document.getElementById('cal-active-only').checked = calActiveOnly;
+  const min = calParse(CAL_START), max = calParse(calMaxIso());
+  document.getElementById('cal-prev').disabled = calMonth <= new Date(min.getFullYear(), min.getMonth(), 1);
+  document.getElementById('cal-next').disabled = calMonth >= new Date(max.getFullYear(), max.getMonth(), 1);
+  document.getElementById('cal-month').textContent = calMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+}
+function calGoToday(silent) {
+  const t = new Date();
+  calMonth = new Date(t.getFullYear(), t.getMonth(), 1);
+  calSelectedDay = calToday();
+  if (!silent) { calSyncControls(); renderCalendar(); }
+}
+function calShiftMonth(delta) {
+  const next = new Date(calMonth.getFullYear(), calMonth.getMonth() + delta, 1);
+  const min = calParse(CAL_START), max = calParse(calMaxIso());
+  if (next < new Date(min.getFullYear(), min.getMonth(), 1) || next > new Date(max.getFullYear(), max.getMonth(), 1)) return;
+  calMonth = next;
+  calSelectedDay = null;
+  calSyncControls();
+  renderCalendar();
+  document.getElementById('main').scrollTop = 0;
+}
+function calSetMode(mode) {
+  calMode = mode;
+  try { localStorage.setItem('tvworld-cal-mode', mode); } catch (e) {}
+  calSyncControls();
+  renderCalendar();
+}
+function calToggleType(type, el) {
+  if (calTypes.has(type) && calTypes.size === 1) return;
+  if (calTypes.has(type)) calTypes.delete(type); else calTypes.add(type);
+  el.className = 'type-pill' + (calTypes.has(type) ? ` active-${type}` : '');
+  renderCalendar();
+}
+function calSetActiveOnly(on) { calActiveOnly = on; renderCalendar(); }
+
+function renderCalendar(keepScroll) {
+  if (!cal.loaded) return;
+  const main = document.getElementById('main');
+  const scroll = main.scrollTop;
+  const all = calBuildEvents();
+  const monthStart = calIso(calMonth);
+  const monthEnd = calIso(new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 0));
+  const today = calToday();
+  const weekStart = calWeekStart(today);
+  const weekEnd = calIso(new Date(calParse(weekStart).getTime() + 6 * CAL_DAY));
+  // In List mode, the current month runs on for two weeks past today so "what's next" is never cut off at month end
+  const plus13 = calIso(new Date(calParse(today).getTime() + 13 * CAL_DAY));
+  const listEnd = calMode === 'list' && today >= monthStart && today <= monthEnd && plus13 > monthEnd ? plus13 : monthEnd;
+  const inMonth = all.filter(e => e.date >= monthStart && e.date <= listEnd);
+  const next7End = calIso(new Date(calParse(today).getTime() + 6 * CAL_DAY));
+  const next7 = all.filter(e => e.date >= today && e.date <= next7End);
+  const cinemas = next7.filter(e => e.kind === 'cinema').length;
+  const epShows = new Set(next7.filter(e => e.eps).map(e => e.s.id)).size;
+  const bits = [];
+  if (epShows) bits.push(`${epShows} show${epShows !== 1 ? 's' : ''} with new episodes`);
+  if (cinemas) bits.push(`${cinemas} movie${cinemas !== 1 ? 's' : ''} in cinemas`);
+  document.getElementById('cal-sub').textContent = bits.length ? `Next 7 days: ${bits.join(' · ')}` : 'Nothing from your library in the next 7 days';
+
+  const body = document.getElementById('cal-body');
+  body.innerHTML = calMode === 'month' ? calMonthHtml(inMonth, today) : calListHtml(inMonth, today, weekStart, weekEnd);
+  calLastEvents = inMonth;
+
+  if (keepScroll) main.scrollTop = scroll;
+  else if (calMode === 'list' && today >= monthStart && today <= monthEnd) {
+    // Jump to this week (or the next day with something on)
+    const target = body.querySelector('.cal-day.this-week, .cal-day.upcoming');
+    if (target) requestAnimationFrame(() => {
+      main.scrollTop += target.getBoundingClientRect().top - main.getBoundingClientRect().top - 70;
+    });
+  }
+}
+function calItemHtml(ev, idx) {
+  const s = ev.s;
+  const icon = s.type === 'movie' ? '🎬' : s.type === 'anime' ? '⛩' : '📺';
+  const thumb = s.poster_url ? `<img class="cal-thumb" src="${s.poster_url}" loading="lazy" alt="">` : `<div class="cal-thumb-ph">${icon}</div>`;
+  let sub, kind;
+  if (ev.eps) {
+    sub = calEpLabel(ev);
+    kind = `<span class="cal-kind ${ev.kind}">${ev.kind === 'anime' ? '⛩ Anime' : '📺 TV'}</span>`;
+  } else {
+    sub = ev.label;
+    kind = `<span class="cal-kind ${ev.kind}">${ev.kind === 'cinema' ? '🎬 Cinema' : '💻 Digital'}</span>`;
+  }
+  const watchedAll = ev.eps && ev.eps.every(e => e.watched);
+  return `<div class="cal-item" onclick="calOpen(${idx})">
+    ${thumb}
+    <div class="cal-item-main">
+      <div class="cal-item-title">${discEsc(s.title)}</div>
+      <div class="cal-item-sub">${discEsc(sub)}</div>
+    </div>
+    <div class="cal-item-side">${kind}${watchedAll ? '<span class="cal-watched">✓ Watched</span>' : `<span class="status-badge ${calBadge(s.status)}">${discEsc(s.status)}</span>`}</div>
+  </div>`;
+}
+const calBadge = (st) => ({ 'Watching': 'badge-watching', 'Plan to Watch': 'badge-plan', 'Paused': 'badge-paused', 'Completed': 'badge-complete', 'Dropped': 'badge-dropped' }[st] || '');
+function calListHtml(events, today, weekStart, weekEnd) {
+  if (!events.length) return `<div class="cal-empty">Nothing from your library in ${calMonth.toLocaleDateString(undefined, { month: 'long' })}${cal.refreshing ? ' yet — still loading dates…' : '.'}</div>`;
+  const byDay = new Map();
+  events.forEach((e, i) => { if (!byDay.has(e.date)) byDay.set(e.date, []); byDay.get(e.date).push([e, i]); });
+  let html = '', lastWeek = null, markedUpcoming = false;
+  byDay.forEach((list, day) => {
+    const wk = calWeekStart(day);
+    if (wk !== lastWeek) {
+      lastWeek = wk;
+      const label = wk === weekStart ? 'This week'
+        : wk === calIso(new Date(calParse(weekStart).getTime() + 7 * CAL_DAY)) ? 'Next week'
+        : wk === calIso(new Date(calParse(weekStart).getTime() - 7 * CAL_DAY)) ? 'Last week'
+        : `Week of ${calFmtDay(wk)}`;
+      html += `<div class="cal-week-label">${label}</div>`;
+    }
+    const cls = ['cal-day'];
+    if (day === today) cls.push('today');
+    if (day >= weekStart && day <= weekEnd) cls.push('this-week');
+    if (!markedUpcoming && day >= today) { cls.push('upcoming'); markedUpcoming = true; }
+    html += `<div class="${cls.join(' ')}">
+      <div class="cal-day-head"><span class="cal-day-date">${calFmtDay(day)}</span>${day === today ? '<span class="cal-tag">Today</span>' : ''}<span class="cal-day-count">${list.length}</span></div>
+      ${list.map(([e, i]) => calItemHtml(e, i)).join('')}
+    </div>`;
+  });
+  return html;
+}
+function calMonthHtml(events, today) {
+  const byDay = new Map();
+  events.forEach((e, i) => { if (!byDay.has(e.date)) byDay.set(e.date, []); byDay.get(e.date).push([e, i]); });
+  const first = calParse(calIso(calMonth));
+  const start = new Date(first); start.setDate(1 - ((first.getDay() + 6) % 7));
+  const last = new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 0);
+  const end = new Date(last); end.setDate(last.getDate() + (6 - ((last.getDay() + 6) % 7)));
+  let html = '<div class="cal-grid">' + ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d => `<div class="cal-dow">${d}</div>`).join('');
+  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+    const iso = calIso(d);
+    const out = d.getMonth() !== calMonth.getMonth();
+    const list = out ? [] : (byDay.get(iso) || []);
+    const cls = ['cal-cell'];
+    if (out) cls.push('out');
+    if (iso === today) cls.push('today');
+    if (iso === calSelectedDay) cls.push('sel');
+    html += `<div class="${cls.join(' ')}" onclick="calSelectDay('${iso}')">
+      <div class="cal-cell-num">${d.getDate()}</div>
+      ${list.slice(0, 3).map(([e]) => `<div class="cal-chip ${e.kind}">${discEsc(calShortLabel(e))}</div>`).join('')}
+      ${list.length > 3 ? `<div class="cal-more">+${list.length - 3} more</div>` : ''}
+      <div class="cal-dots">${list.slice(0, 6).map(([e]) => `<span class="cal-dot ${e.kind}"></span>`).join('')}</div>
+    </div>`;
+  }
+  html += '</div>';
+  const sel = calSelectedDay && byDay.get(calSelectedDay);
+  if (calSelectedDay && calSelectedDay.slice(0, 7) === calIso(calMonth).slice(0, 7)) {
+    html += `<div class="cal-day${calSelectedDay === today ? ' today' : ''}" id="cal-day-panel">
+      <div class="cal-day-head"><span class="cal-day-date">${calFmtDay(calSelectedDay)}</span>${calSelectedDay === today ? '<span class="cal-tag">Today</span>' : ''}<span class="cal-day-count">${sel ? sel.length : 0}</span></div>
+      ${sel ? sel.map(([e, i]) => calItemHtml(e, i)).join('') : '<div class="cal-empty" style="padding:16px;">Nothing on this day.</div>'}
+    </div>`;
+  } else {
+    html += '<div class="cal-empty" style="padding:12px;">Tap a day to see what\'s on.</div>';
+  }
+  return html;
+}
+function calSelectDay(iso) {
+  calSelectedDay = iso;
+  renderCalendar(true);
+  const panel = document.getElementById('cal-day-panel');
+  if (panel && window.innerWidth <= 768) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+function calOpen(idx) {
+  const ev = calLastEvents[idx];
+  if (ev) openDetail(ev.s.id);
+}
 </script>
 </body>
 </html>
