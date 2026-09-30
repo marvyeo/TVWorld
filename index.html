@@ -333,6 +333,7 @@
   .hide-status-row { display:flex; gap:6px; align-items:center; margin-left:auto; flex-wrap:wrap; }
   .hide-label { font-size:11px; color:var(--muted); margin-right:2px; }
   .type-pill.active-hide { background:rgba(248,113,113,0.12); border-color:var(--dropped); color:var(--dropped); text-decoration:line-through; text-decoration-thickness:1px; }
+  .type-pill.active-jp { background:rgba(248,113,113,0.13); border-color:#f87171; color:#f87171; }
 
   /* ── Calendar ── */
   .cal-bar { display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between; margin-bottom:14px; }
@@ -407,6 +408,20 @@
   .disc-poster { width:100%; aspect-ratio:2/3; object-fit:cover; background:var(--border); display:block; }
   .disc-poster-ph { width:100%; aspect-ratio:2/3; background:var(--border); display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:26px; }
   .disc-count { position:absolute; top:6px; left:6px; background:rgba(14,15,19,0.88); border:1px solid rgba(245,158,11,0.45); color:#f59e0b; font-size:10px; font-weight:700; padding:2px 7px; border-radius:20px; }
+  .type-pill.active-jdrama { background:rgba(248,113,113,0.13); border-color:#f87171; color:#f87171; }
+  .disc-follow-row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:-6px 0 18px; }
+  .disc-follow-chip { display:flex; align-items:center; gap:7px; background:var(--card); border:1px solid var(--border); border-radius:20px; padding:4px 6px 4px 4px; font-size:12px; }
+  .disc-follow-chip img, .disc-follow-chip .fc-ph { width:24px; height:24px; border-radius:50%; object-fit:cover; background:var(--border); flex-shrink:0; }
+  .disc-follow-chip .fc-ph { display:flex; align-items:center; justify-content:center; font-size:11px; color:var(--muted); }
+  .disc-follow-chip .fc-x { cursor:pointer; color:var(--muted); font-size:14px; line-height:1; padding:2px 4px; border-radius:50%; }
+  .disc-follow-chip .fc-x:hover { color:var(--dropped); background:rgba(248,113,113,0.12); }
+  .fs-item { display:flex; gap:12px; align-items:center; padding:8px; border-radius:10px; cursor:pointer; }
+  .fs-item:hover { background:var(--surface); }
+  .fs-item img, .fs-item .fs-ph { width:42px; height:42px; border-radius:50%; object-fit:cover; background:var(--border); flex-shrink:0; }
+  .fs-item .fs-ph { display:flex; align-items:center; justify-content:center; color:var(--muted); }
+  .fs-name { font-size:13px; font-weight:600; }
+  .fs-known { font-size:11px; color:var(--muted); margin-top:2px; }
+  .fs-already { font-size:10px; color:var(--watching); margin-left:auto; flex-shrink:0; }
   .disc-body { padding:8px 9px 10px; }
   .tmm-row { border:1px solid var(--border); border-radius:12px; padding:12px; margin-bottom:10px; }
   .tmm-head { display:flex; justify-content:space-between; align-items:baseline; gap:10px; margin-bottom:10px; }
@@ -422,7 +437,7 @@
   .disc-film { position:absolute; bottom:auto; top:30px; left:6px; background:rgba(14,15,19,0.88); border:1px solid var(--border); color:var(--muted); font-size:9px; font-weight:700; padding:2px 6px; border-radius:20px; letter-spacing:0.03em; }
   .disc-title { font-size:12px; font-weight:600; line-height:1.3; }
   .disc-year { font-size:10px; color:var(--muted); margin-top:2px; }
-  .disc-names { font-size:10px; color:#9ca3af; margin-top:5px; line-height:1.4; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .disc-names { font-size:10px; color:#9ca3af; margin-top:5px; line-height:1.4; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
   .dm-hero { display:flex; gap:18px; margin-bottom:20px; align-items:flex-start; }
   .dm-poster { width:110px; flex-shrink:0; border-radius:10px; aspect-ratio:2/3; object-fit:cover; background:var(--border); }
   .dm-poster-ph { width:110px; flex-shrink:0; border-radius:10px; aspect-ratio:2/3; background:var(--border); display:flex; align-items:center; justify-content:center; font-size:32px; color:var(--muted); }
@@ -438,8 +453,12 @@
   .dm-star-role { font-weight:400; color:var(--muted); }
   .dm-star-from { font-size:11px; color:var(--muted); margin-top:2px; }
   .dm-star-from b { color:#9ca3af; font-weight:500; }
+  .dm-why { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:14px; }
+  .dm-why-chip { font-size:11px; padding:4px 10px; border-radius:20px; background:var(--surface); border:1px solid var(--border); color:#9ca3af; }
+  .dm-why-chip b { color:var(--text); font-weight:600; }
+  .dm-section { margin-top:16px; }
   /* ── Discover TV/Movies switch (all sizes) ── */
-  .disc-media-switch { display:flex; gap:8px; margin-top:12px; }
+  .disc-media-switch { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
 
   /* ── Mobile chrome (hidden on desktop) ── */
   .mobile-only { display:none !important; }
@@ -603,13 +622,16 @@
       </div>
       <div class="nav-section">Discover</div>
       <div class="nav-item" data-view="discover-tv" onclick="switchView('discover-tv')">
-        <span>📺</span> TV from Your Stars
+        <span>📺</span> TV
       </div>
       <div class="nav-item" data-view="discover-movie" onclick="switchView('discover-movie')">
-        <span>🎬</span> Movies from Your Stars
+        <span>🎬</span> Movies
       </div>
       <div class="nav-item" data-view="discover-anime" onclick="switchView('discover-anime')">
-        <span>⛩</span> Anime from Your Stars
+        <span>⛩</span> Anime
+      </div>
+      <div class="nav-item" data-view="discover-jdrama" onclick="switchView('discover-jdrama')">
+        <span>🗾</span> J-Drama
       </div>
       <div class="divider"></div>
       <div class="nav-section">Actions</div>
@@ -670,6 +692,7 @@
         <div class="type-pill active-tv"    data-type="tv"    onclick="toggleType('tv',this)">📺 TV</div>
         <div class="type-pill active-anime" data-type="anime" onclick="toggleType('anime',this)">⛩ Anime</div>
         <div class="type-pill active-movie" data-type="movie" onclick="toggleType('movie',this)">🎬 Movie</div>
+        <div class="type-pill" id="jp-origin-filter" onclick="toggleJpFilter()">🇯🇵 Japanese only</div>
         <div class="hide-status-row" id="hide-status-row">
           <span class="hide-label">Hide:</span>
           <div class="type-pill" data-hide-status="Plan to Watch" onclick="toggleHideStatus('Plan to Watch')">Plan to Watch</div>
@@ -758,11 +781,12 @@
           <div class="type-pill" id="disc-media-tv" onclick="switchView('discover-tv')">📺 TV</div>
           <div class="type-pill" id="disc-media-movie" onclick="switchView('discover-movie')">🎬 Movies</div>
           <div class="type-pill" id="disc-media-anime" onclick="switchView('discover-anime')">⛩ Anime</div>
+          <div class="type-pill" id="disc-media-jdrama" onclick="switchView('discover-jdrama')">🗾 J-Drama</div>
         </div>
         <div class="disc-media-switch hidden" id="disc-anime-formats">
           <span style="font-size:11px;color:var(--muted);align-self:center;">Include:</span>
-          <div class="type-pill active-anime" data-disc-format="2" onclick="toggleDiscAnimeFormat(2, this)">📺 Series</div>
-          <div class="type-pill active-anime" data-disc-format="3" onclick="toggleDiscAnimeFormat(3, this)">🎞 Films</div>
+          <div class="type-pill" data-disc-format="s" onclick="toggleDiscFormat('s', this)">📺 Series</div>
+          <div class="type-pill" data-disc-format="f" onclick="toggleDiscFormat('f', this)">🎞 Films</div>
         </div>
       </div>
       <div class="disc-scan">
@@ -774,6 +798,7 @@
         <button class="btn btn-primary btn-sm" id="disc-scan-btn" onclick="toggleDiscoverScan()">Scan</button>
         <button class="btn btn-ghost btn-sm" id="disc-rescan-btn" onclick="rescanDiscover()">Rescan all</button>
       </div>
+      <div class="disc-follow-row" id="disc-follow-row"></div>
       <div class="toolbar">
         <div class="search-box">
           <span style="color:var(--muted)">🔍</span>
@@ -782,7 +807,8 @@
       </div>
       <div class="sort-bar">
         <span style="font-size:11px;color:var(--muted);align-self:center;">Sort:</span>
-        <button class="sort-btn active" data-disc-sort="stars" onclick="setDiscoverSort('stars',this)">Most Stars</button>
+        <button class="sort-btn active" data-disc-sort="match" onclick="setDiscoverSort('match',this)">Best match</button>
+        <button class="sort-btn" data-disc-sort="stars" onclick="setDiscoverSort('stars',this)">Most Stars</button>
         <button class="sort-btn" data-disc-sort="az" onclick="setDiscoverSort('az',this)">A → Z</button>
         <button class="sort-btn" data-disc-sort="year-desc" onclick="setDiscoverSort('year-desc',this)">Year (New)</button>
         <button class="sort-btn" data-disc-sort="year-asc" onclick="setDiscoverSort('year-asc',this)">Year (Old)</button>
@@ -858,6 +884,11 @@
           <span style="font-size:12px;color:var(--muted);margin-left:10px;" id="cast-resync-status"></span>
         </div>
         <div style="margin-top:10px;">
+          <button class="btn btn-secondary btn-sm" onclick="detectOriginsAll()" id="origin-detect-btn">🌏 Detect origins</button>
+          <span style="font-size:12px;color:var(--muted);margin-left:10px;" id="origin-detect-status"></span>
+          <div style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.5;">Records the country and language of each TV show and movie so Discover can tell Japanese live-action (J-Drama) from everything else. New titles are picked up automatically; the Discover scan also runs this.</div>
+        </div>
+        <div style="margin-top:14px;">
           <button class="btn btn-secondary btn-sm" onclick="bulkMatchTmdb()" id="tmdb-match-btn">🔗 Match missing TMDB IDs</button>
           <span style="font-size:12px;color:var(--muted);margin-left:10px;" id="tmdb-match-status"></span>
           <div style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.5;">Finds TMDB IDs for titles that don't have one (mostly AniList imports), then pulls their cast. Clear matches are applied automatically; anything uncertain is shown to you to confirm.</div>
@@ -1057,11 +1088,26 @@
   </div>
 </div>
 
+<!-- Follow a star -->
+<div id="follow-star-modal" class="modal-overlay hidden">
+  <div class="modal" style="max-width:440px;">
+    <button class="modal-close" onclick="closeModal('follow-star-modal')">✕</button>
+    <div class="modal-title">Follow a star</div>
+    <p style="font-size:12px;color:var(--muted);margin:-8px 0 14px;line-height:1.5;" id="follow-star-sub"></p>
+    <div class="search-box" style="margin-bottom:12px;">
+      <span style="color:var(--muted)">🔍</span>
+      <input type="text" id="follow-star-input" placeholder="Actor name…" oninput="debounceFollowSearch()" onkeydown="if(event.key==='Enter'){event.preventDefault();searchFollowStar();}">
+    </div>
+    <div id="follow-star-results"></div>
+  </div>
+</div>
+
 <!-- Discover item modal -->
 <div id="discover-modal" class="modal-overlay hidden">
   <div class="modal modal-xl" style="max-width:640px;">
     <button class="modal-close" onclick="closeModal('discover-modal')">✕</button>
     <div class="dm-hero" id="dm-hero"></div>
+    <div class="dm-why" id="dm-why"></div>
     <div class="section-label" id="dm-stars-label"></div>
     <div class="dm-stars" id="dm-stars"></div>
   </div>
@@ -1228,6 +1274,13 @@ let personFilmData = { movies: [], tv: [] };
 let currentFilmTab = 'movies';
 let filmographyReturnState = null; // { personId, scrollTop, tab } — set when adding from filmography
 let quickAddPayload = null;
+let pendingOrigin = null; // { tmdb_id, origin_country, original_language } from selectTMDB, applied when the new entry is saved
+let jpOnly = false;
+function toggleJpFilter() {
+  jpOnly = !jpOnly;
+  document.getElementById('jp-origin-filter').classList.toggle('active-jp', jpOnly);
+  renderGrid();
+}
 let hiddenStatuses = (() => {
   try {
     const saved = localStorage.getItem('tvworld-hide-statuses');
@@ -1309,6 +1362,7 @@ async function loadFromDrive() {
       });
       data = await content.json();
       data.settings = data.settings || { tmdb_api_key: '', subscribed_platforms: [] };
+      data.settings.followed_stars = data.settings.followed_stars || [];
       data.series = data.series || [];
       data.upcoming = data.upcoming || [];
       // Older JSON-ingested entries were saved without a type; the library already treats them as TV
@@ -1411,7 +1465,7 @@ function switchView(view) {
   document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.view === view));
   const isStars = view === 'stars';
   const isSettings = view === 'settings';
-  const isDiscover = view === 'discover-tv' || view === 'discover-movie' || view === 'discover-anime';
+  const isDiscover = view.startsWith('discover-');
   const isCalendar = view === 'calendar';
   document.getElementById('list-view').classList.toggle('hidden', isSettings || isStars || isDiscover || isCalendar);
   document.getElementById('calendar-view').classList.toggle('hidden', !isCalendar);
@@ -1424,6 +1478,7 @@ function switchView(view) {
     const titles = { all:'All Series', watching:'Watching', plan:'Plan to Watch', paused:'Paused', completed:'Completed', dropped:'Dropped' };
     document.getElementById('list-title').textContent = titles[view] || 'All Series';
     document.getElementById('hide-status-row').style.display = view === 'all' ? '' : 'none';
+    document.getElementById('jp-origin-filter').style.display = view === 'all' ? '' : 'none';
     syncHideStatusPills();
     renderGrid();
     renderContinueStrip();
@@ -1436,6 +1491,7 @@ function switchView(view) {
     document.getElementById('disc-media-tv').className = 'type-pill' + (view === 'discover-tv' ? ' active-tv' : '');
     document.getElementById('disc-media-movie').className = 'type-pill' + (view === 'discover-movie' ? ' active-movie' : '');
     document.getElementById('disc-media-anime').className = 'type-pill' + (view === 'discover-anime' ? ' active-anime' : '');
+    document.getElementById('disc-media-jdrama').className = 'type-pill' + (view === 'discover-jdrama' ? ' active-jdrama' : '');
     openDiscoverView(view.replace('discover-', ''));
   }
   updateBottomNav();
@@ -1480,6 +1536,7 @@ function renderGrid() {
     if (currentView === 'dropped' && s.status !== 'Dropped') return false;
     if (currentView === 'all' && hiddenStatuses.has(s.status)) return false;
     if (!activeTypes.has(s.type || 'tv')) return false;
+    if (currentView === 'all' && jpOnly && !isJapaneseLive(s)) return false;
     if (query && !s.title.toLowerCase().includes(query)) return false;
     if (genreFilter && !(s.genres||[]).includes(genreFilter)) return false;
     return true;
@@ -2027,6 +2084,11 @@ function saveSeries() {
   } else {
     seriesData.id = crypto.randomUUID();
     seriesData.streaming_platforms = [];
+    if (pendingOrigin && seriesData.tmdb_id && pendingOrigin.tmdb_id === String(seriesData.tmdb_id)) {
+      seriesData.origin_country = pendingOrigin.origin_country;
+      seriesData.original_language = pendingOrigin.original_language;
+    }
+    pendingOrigin = null;
     data.series.push(seriesData);
     // Fetch streaming providers if tmdb_id
     if (seriesData.tmdb_id && data.settings.tmdb_api_key) {
@@ -2114,6 +2176,7 @@ async function selectTMDB(tmdbId, mediaType) {
       document.getElementById('m-tmdb-id').value = String(tmdbId);
       document.getElementById('m-genres').value = (m.genres||[]).map(g=>g.name).join(', ');
       const yearEl = document.getElementById('m-year'); if (yearEl) yearEl.value = (m.release_date||'').split('-')[0] || '';
+      pendingOrigin = { tmdb_id: String(tmdbId), ...originFromTmdb(m) };
       showToast('TMDB data loaded — review and save', 'success');
       return;
     }
@@ -2144,6 +2207,7 @@ async function selectTMDB(tmdbId, mediaType) {
     document.getElementById('m-tmdb-id').value = String(tmdbId);
     document.getElementById('m-genres').value = (s.genres||[]).map(g=>g.name).join(', ');
     const yearEl = document.getElementById('m-year'); if (yearEl) yearEl.value = (s.first_air_date||'').split('-')[0] || '';
+    pendingOrigin = { tmdb_id: String(tmdbId), ...originFromTmdb(s) };
     const sb = document.getElementById('season-builder');
     sb.innerHTML = ''; seasonBuilderCount = 0;
     seasons.forEach(sea => addSeasonRow(sea));
@@ -2175,6 +2239,7 @@ async function refreshFromTMDB() {
       s.poster_url = m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : s.poster_url;
       s.genres = (m.genres||[]).map(g=>g.name).length ? (m.genres||[]).map(g=>g.name) : s.genres;
       s.year = (m.release_date||'').split('-')[0] || s.year;
+      Object.assign(s, originFromTmdb(m));
       await fetchProviders(s.id, s.tmdb_id);
       saveToDrive();
       openDetail(s.id);
@@ -2198,6 +2263,7 @@ async function refreshFromTMDB() {
     s.synopsis = s.synopsis || meta.overview || '';
     if (s.type !== 'anime') s.genres = (meta.genres||[]).map(g=>g.name).length ? (meta.genres||[]).map(g=>g.name) : s.genres;
     s.poster_url = s.poster_url || (meta.poster_path ? `https://image.tmdb.org/t/p/w500${meta.poster_path}` : '');
+    if (s.type !== 'anime') Object.assign(s, originFromTmdb(meta));
 
     const isAnime = s.type === 'anime';
     const ourSeasonCount = (s.seasons || []).length;
@@ -2987,7 +3053,7 @@ if (uploadZone) {
 }
 
 // ─── Close modals on overlay click ────────────────────────────────────────
-['add-modal','ingest-modal','person-modal','quick-add-modal','tmdb-import-modal','anilist-import-modal','mal-picker-modal'].forEach(id => {
+['add-modal','ingest-modal','person-modal','quick-add-modal','tmdb-import-modal','anilist-import-modal','mal-picker-modal','follow-star-modal'].forEach(id => {
   document.getElementById(id).addEventListener('click', function(e) {
     if (e.target === this) closeModal(id);
   });
@@ -3513,51 +3579,111 @@ async function confirmAnilistImport() {
   btn.disabled = false;
 }
 
-// ─── Discover: TV / Movies from your stars ─────────────────────────────────
-// Tracked stars = top 20 cast per library TV show / movie (the existing s.cast field).
-// Filmographies are cached in this browser's IndexedDB (too large for tvworld-data.json):
-//   personCredits key personId → { v: 2, c: [[code, tmdbId, title, date, poster, character]] }  (pre-filtered)
-//     code: 0 movie · 1 TV · 2 anime series · 3 anime film
-//     Older records are a bare array with no anime rows — fine for TV/Movies, re-fetched for the Anime pool.
-// Stars no longer in the pool are pruned from the cache after each load and scan.
+// ─── Discover: TV / Movies / Anime / J-Drama ───────────────────────────────
+// Three signals feed each page:
+//   ★ stars   — people in the top-20 cast of your library titles, and everything else they've been in
+//   👍 recs    — TMDB /recommendations for your library titles ("people who liked this also looked at…")
+//   ◆ genre   — (J-Drama only) TMDB /discover filtered to Japan + the genres your J-drama library leans towards
+// Cached in this browser's IndexedDB (too large for tvworld-data.json):
+//   personCredits key personId → { v: 3, c: [[code, tmdbId, title, date, poster, character]] }
+//     code: 0 movie · 1 TV · 2 anime series · 3 anime film · 4 J-drama series · 5 J-drama film
+//     v3 = J-drama codes exist. Anime only needs v>=2; TV/Movies/J-Drama need v3, so older records are quietly re-fetched.
+//   recs   key "tv:123" | "movie:456" → { at, r: [[code, id, title, date, poster, votes]] }
+//   recs   key "genre:jdrama"         → { at, sig, r: [[code, id, title, date, poster, votes, genreIds]] }
+// Japanese live-action = origin JP or language ja, and not Animation. Library entries carry origin_country /
+// original_language (filled by Settings → Detect origins, the Discover scan, the add flow and ↻ TMDB).
 const DISC_DB_NAME = 'tvworld-discover';
-const DISC_FILTER_VERSION = 1;   // bump when discKeepCredit changes → forces people rescan
+const DISC_FILTER_VERSION = 1;
+const DISC_PERSON_V = 3;
 const DISC_CONCURRENCY = 6;
 const DISC_CHUNK = 120;
 const DISC_CAST_LIMIT = 20;
+const DISC_REC_TTL = 30 * 86400000;
+const DISC_GENRE_TTL = 7 * 86400000;
 const DISC_SELF_RE = /\b(self|himself|herself|themselves|themself)\b/i;
 const DISC_SKIP_TV_GENRES = [10763, 10764, 10767]; // News, Reality, Talk
 const DISC_ANIME_COUNTRIES = ['JP','KR','CN','TW'];
 const DISC_ANIME_LANGS = ['ja','ko','zh'];
+// Genre canon: TMDB uses different IDs and some combined genres for TV vs movies
+const DISC_GENRE_TV = { action:10759, adventure:10759, scifi:10765, fantasy:10765, war:10768, comedy:35, crime:80, drama:18, family:10751, mystery:9648, western:37, kids:10762, soap:10766 };
+const DISC_GENRE_MOVIE = { action:28, adventure:12, scifi:878, fantasy:14, war:10752, history:36, horror:27, music:10402, mystery:9648, romance:10749, thriller:53, comedy:35, crime:80, drama:18, family:10751, western:37 };
+const DISC_GENRE_LABEL = { scifi:'Sci-Fi', scifi_fantasy:'Sci-Fi' };
+const discIdToCanon = (map) => { const out = {}; Object.entries(map).forEach(([c, id]) => { (out[id] = out[id] || []).push(c); }); return out; };
+const DISC_TV_ID_CANON = discIdToCanon(DISC_GENRE_TV);
+const DISC_MOVIE_ID_CANON = discIdToCanon(DISC_GENRE_MOVIE);
 
 let discDb = null;
-let disc = { personCredits: new Map(), lastScan: null, loaded: false };
+let disc = { personCredits: new Map(), recs: new Map(), lastScan: null, loaded: false };
 let discScan = { running: false, stop: false, phase: '', done: 0, total: 0, failed: 0, error: null };
-let discWriteBuf = { personCredits: [] };
-let discMedia = 'tv';           // 'tv' | 'movie' | 'anime'
-let discAnimeFormats = new Set([2, 3]);
-const discRows = (rec) => Array.isArray(rec) ? rec : (rec?.c || []);
-const discHasAnime = (rec) => !!rec && !Array.isArray(rec) && rec.v >= 2;
-const discPoolKind = (media) => media === 'anime' ? 'anime' : 'live';
-let discSort = 'stars';
+let discWriteBuf = { personCredits: [], recs: [] };
+let discMedia = 'tv';           // 'tv' | 'movie' | 'anime' | 'jdrama'
+let discFormats = { anime: new Set(['s', 'f']), jdrama: new Set(['s', 'f']) };
+let discSort = 'match';
 let discHideTracked = false;
 let discList = [];
 let discRendered = 0;
 let discObserver = null;
 let discLastLiveRender = 0;
 let discModalItem = null;
+const discRows = (rec) => Array.isArray(rec) ? rec : (rec?.c || []);
+const discRecVersion = (rec) => !rec ? 0 : Array.isArray(rec) ? 1 : (rec.v || 2);
+const discPoolKind = (media) => media === 'anime' ? 'anime' : media === 'jdrama' ? 'jdrama' : 'live';
+const discIsScanned = (personId, kind = discPoolKind(discMedia)) => discRecVersion(disc.personCredits.get(personId)) >= (kind === 'anime' ? 2 : DISC_PERSON_V);
 
 const discSleep = (ms) => new Promise(r => setTimeout(r, ms));
 const discEsc = (str) => String(str ?? '').replace(/[&<>"']/g, ch => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[ch]));
+function discFmt(n) { return n.toLocaleString(); }
+
+// ── Japanese live-action detection ──
+function originFromTmdb(j) {
+  const oc = j?.origin_country?.length ? j.origin_country : (j?.production_countries || []).map(c => c.iso_3166_1).filter(Boolean);
+  return { origin_country: oc, original_language: j?.original_language || '' };
+}
+function isJapaneseLive(s) {
+  if (!s || (s.type !== 'tv' && s.type !== 'movie')) return false;
+  const jp = (s.origin_country || []).includes('JP') || s.original_language === 'ja';
+  return jp && !(s.genres || []).some(g => String(g).toLowerCase() === 'animation');
+}
+const isJapaneseAnimation = (s) => !!s && (s.type === 'tv' || s.type === 'movie') &&
+  ((s.origin_country || []).includes('JP') || s.original_language === 'ja') && (s.genres || []).some(g => String(g).toLowerCase() === 'animation');
+const discNeedsOrigin = (s) => (s.type === 'tv' || s.type === 'movie') && !!s.tmdb_id && !Array.isArray(s.origin_country);
+async function discDetectOrigin(s, key) {
+  const j = await discFetchJSON(`https://api.themoviedb.org/3/${s.type === 'movie' ? 'movie' : 'tv'}/${s.tmdb_id}?api_key=${key}`);
+  Object.assign(s, originFromTmdb(j));
+}
+async function detectOriginsAll() {
+  const key = data.settings.tmdb_api_key;
+  if (!key) { showToast('Add your TMDB API key first', 'error'); return; }
+  const targets = data.series.filter(discNeedsOrigin);
+  const statusEl = document.getElementById('origin-detect-status');
+  const countJp = () => data.series.filter(isJapaneseLive).length;
+  if (!targets.length) { statusEl.textContent = `All titles checked · ${countJp()} Japanese live-action`; showToast('Every title already has its origin recorded', 'success'); return; }
+  const btn = document.getElementById('origin-detect-btn');
+  btn.disabled = true;
+  let i = 0, done = 0, failed = 0;
+  const lane = async () => {
+    while (i < targets.length) {
+      const s = targets[i++];
+      try { await discDetectOrigin(s, key); }
+      catch (e) { failed++; if (e.fatal) { i = targets.length; showToast('TMDB key rejected — check Settings', 'error'); } }
+      statusEl.textContent = `Checking ${++done}/${targets.length}…`;
+    }
+  };
+  await Promise.all(Array.from({ length: DISC_CONCURRENCY }, lane));
+  btn.disabled = false;
+  statusEl.textContent = `✓ ${done - failed} checked · ${countJp()} Japanese live-action` + (failed ? ` · ${failed} failed` : '');
+  saveToDrive();
+  showToast('Origins recorded', 'success');
+}
 
 // ── IndexedDB helpers ──
 function discOpenDb() {
   if (discDb) return Promise.resolve(discDb);
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DISC_DB_NAME, 1);
+    const req = indexedDB.open(DISC_DB_NAME, 2);
     req.onupgradeneeded = () => {
       const db = req.result;
-      ['titleCast', 'personCredits', 'meta'].forEach(n => { if (!db.objectStoreNames.contains(n)) db.createObjectStore(n); });
+      ['titleCast', 'personCredits', 'meta', 'recs'].forEach(n => { if (!db.objectStoreNames.contains(n)) db.createObjectStore(n); });
     };
     req.onsuccess = () => { discDb = req.result; resolve(discDb); };
     req.onerror = () => reject(req.error);
@@ -3588,7 +3714,7 @@ async function discReadAll(store) {
 }
 function discQueueWrite(store, key, val) { discWriteBuf[store].push([key, val]); }
 async function discFlush() {
-  for (const store of ['personCredits']) {
+  for (const store of ['personCredits', 'recs']) {
     const items = discWriteBuf[store].splice(0);
     if (!items.length) continue;
     try { await discTx(store, 'readwrite', st => { items.forEach(([k, v]) => st.put(v, k)); }); }
@@ -3603,9 +3729,9 @@ async function discLoad() {
       await discTx('personCredits', 'readwrite', st => st.clear());
       await discTx('meta', 'readwrite', st => st.put(DISC_FILTER_VERSION, 'filterVersion'));
     }
-    // Full-cast lists from the earlier build are no longer used — free the space
-    await discTx('titleCast', 'readwrite', st => st.clear());
+    await discTx('titleCast', 'readwrite', st => st.clear()); // leftover from the full-cast build
     disc.personCredits = new Map(await discReadAll('personCredits'));
+    disc.recs = new Map(await discReadAll('recs'));
     disc.lastScan = (await discTx('meta', 'readonly', st => st.get('lastScan'))) || null;
     await discPrune();
   } catch (e) {
@@ -3616,9 +3742,8 @@ async function discLoad() {
 }
 async function discPrune() {
   // Drop cached filmographies for people who are no longer in anyone's top 20
-  const live = discBuildPool('live').pool;
-  const anime = discBuildPool('anime').pool;
-  const stale = [...disc.personCredits.keys()].filter(id => !live.has(id) && !anime.has(id));
+  const keep = new Set([...discBuildPool('live').pool.keys(), ...discBuildPool('anime').pool.keys(), ...discBuildPool('jdrama').pool.keys(), ...(data.settings.followed_stars || []).map(f => f.id)]);
+  const stale = [...disc.personCredits.keys()].filter(id => !keep.has(id));
   if (!stale.length) return;
   stale.forEach(id => disc.personCredits.delete(id));
   try { await discTx('personCredits', 'readwrite', st => { stale.forEach(id => st.delete(id)); }); }
@@ -3626,30 +3751,36 @@ async function discPrune() {
 }
 
 // ── Pool of tracked stars ──
+function discEntryInPool(s, kind) {
+  const type = s.type || 'tv';
+  if (kind === 'anime') return type === 'anime';
+  if (type !== 'tv' && type !== 'movie') return false;
+  if (kind === 'jdrama') return isJapaneseLive(s);
+  return !isJapaneseLive(s) && !isJapaneseAnimation(s); // anime misfiled as TV/Movie belongs to neither Western pool nor J-Drama
+}
+function discFollowed(kind) {
+  return (data.settings.followed_stars || []).filter(f => f.kind === kind);
+}
 function discBuildPool(kind = discPoolKind(discMedia)) {
-  // 'live' = cast of library TV shows + movies · 'anime' = cast of library anime
+  // 'live' = cast of Western/other TV + movies · 'jdrama' = cast of Japanese live-action · 'anime' = cast of anime
+  // Followed stars (added by name, not owning any title) are folded in the same way and ranked first.
   const pool = new Map();
+  discFollowed(kind).forEach(f => pool.set(f.id, { id: f.id, name: f.name, profile_path: f.profile_path || null, minOrder: -1, knownFrom: [], followed: true }));
   let missingTitles = 0, noTmdb = 0;
   for (const s of data.series) {
-    const type = s.type || 'tv';
-    if (kind === 'anime' ? type !== 'anime' : (type !== 'tv' && type !== 'movie')) continue;
+    if (!discEntryInPool(s, kind)) continue;
     if (!s.tmdb_id) noTmdb++;
     const cast = (s.cast || []).slice(0, DISC_CAST_LIMIT);
     if (!cast.length) { if (s.tmdb_id) missingTitles++; continue; }
     cast.forEach((c, order) => {
       let p = pool.get(c.id);
       if (!p) { p = { id: c.id, name: c.name, profile_path: c.profile_path || null, minOrder: order, knownFrom: [] }; pool.set(c.id, p); }
-      if (order < p.minOrder) p.minOrder = order;
+      else if (order < p.minOrder && !p.followed) p.minOrder = order;
       if (!p.profile_path && c.profile_path) p.profile_path = c.profile_path;
       if (!p.knownFrom.some(k => k.libId === s.id)) p.knownFrom.push({ title: s.title, character: c.character || '', libId: s.id });
     });
   }
   return { pool, missingTitles, noTmdb };
-}
-
-function discIsScanned(personId, kind = discPoolKind(discMedia)) {
-  const rec = disc.personCredits.get(personId);
-  return kind === 'anime' ? discHasAnime(rec) : !!rec;
 }
 
 // ── TMDB fetching ──
@@ -3665,19 +3796,22 @@ async function discFetchJSON(url) {
   throw new Error('TMDB kept rate-limiting');
 }
 function discClassifyCredit(c) {
-  // Returns 0 movie · 1 TV · 2 anime series · 3 anime film, or null to drop the credit
+  // 0 movie · 1 TV · 2 anime series · 3 anime film · 4 J-drama series · 5 J-drama film — or null to drop
   if (c.media_type !== 'tv' && c.media_type !== 'movie') return null;
   if (DISC_SELF_RE.test(c.character || '')) return null;           // talk shows, award shows, documentaries as themselves
   const yr = parseInt((c.release_date || c.first_air_date || '').slice(0, 4)) || 0;
   if (yr && yr < 1990) return null;                                 // same 1990 cap as the person modal
   const g = c.genre_ids || [];
-  if (c.media_type === 'tv' && g.some(x => DISC_SKIP_TV_GENRES.includes(x))) return null;
+  const isMovie = c.media_type === 'movie';
+  if (!isMovie && g.some(x => DISC_SKIP_TV_GENRES.includes(x))) return null;
   const isAnime = g.includes(16) && (
     (c.origin_country || []).some(o => DISC_ANIME_COUNTRIES.includes(o)) ||
     DISC_ANIME_LANGS.includes(c.original_language)
   );
-  if (isAnime) return c.media_type === 'movie' ? 3 : 2;
-  return c.media_type === 'movie' ? 0 : 1;
+  if (isAnime) return isMovie ? 3 : 2;
+  const jp = (c.origin_country || []).includes('JP') || c.original_language === 'ja';
+  if (jp && !g.includes(16)) return isMovie ? 5 : 4;
+  return isMovie ? 0 : 1;
 }
 function discCompactCredits(json) {
   const out = [];
@@ -3695,8 +3829,87 @@ function discCompactCredits(json) {
     seen.set(k, row);
     out.push(row);
   }
-  return { v: 2, c: out };
+  return { v: DISC_PERSON_V, c: out };
 }
+function discCompactList(results, mediaType, withGenres) {
+  const out = [];
+  for (const r of (results || [])) {
+    const code = discClassifyCredit({ ...r, media_type: mediaType });
+    if (code === null) continue;
+    const row = [code, r.id, r.title || r.name || 'Untitled', r.release_date || r.first_air_date || '', r.poster_path || null, r.vote_count || 0];
+    if (withGenres) row.push(r.genre_ids || []);
+    out.push(row);
+  }
+  return out;
+}
+
+// ── Recommendations signal ──
+const discRecKey = (s) => `${s.type === 'movie' ? 'movie' : 'tv'}:${s.tmdb_id}`;
+function discRecSources(media) {
+  const kind = discPoolKind(media);
+  const out = [], seen = new Set();
+  for (const s of data.series) {
+    if (!s.tmdb_id || s.status === 'Dropped' || !discEntryInPool(s, kind)) continue;
+    const type = s.type || 'tv';
+    if (media === 'tv' && type !== 'tv') continue;
+    if (media === 'movie' && type !== 'movie') continue;
+    const key = discRecKey({ ...s, type });
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ s, key });
+  }
+  return out;
+}
+const discRecFresh = (key) => { const r = disc.recs.get(key); return !!r && Date.now() - r.at < DISC_REC_TTL; };
+
+// ── Genre signal (J-Drama) ──
+function discCanonGenre(name) {
+  const n = String(name || '').toLowerCase().trim();
+  if (n === 'action & adventure') return ['action', 'adventure'];
+  if (n === 'sci-fi & fantasy') return ['scifi', 'fantasy'];
+  if (n === 'science fiction') return ['scifi'];
+  if (n === 'war & politics') return ['war'];
+  if (['tv movie', 'documentary', 'news', 'reality', 'talk', 'animation'].includes(n)) return [];
+  return [n];
+}
+function discGenreTop() {
+  // Weighted by status (Completed > Watching > Plan to Watch, Dropped ignored) and your star rating
+  const w = {};
+  for (const s of data.series) {
+    if (!isJapaneseLive(s)) continue;
+    const sw = { 'Completed': 1.5, 'Watching': 1.3, 'Plan to Watch': 0.8, 'Paused': 0.8, 'Dropped': 0 }[s.status] ?? 1;
+    if (!sw) continue;
+    const rw = s.rating ? 0.5 + s.rating / 5 : 1;
+    (s.genres || []).forEach(g => discCanonGenre(g).forEach(c => { w[c] = (w[c] || 0) + sw * rw; }));
+  }
+  const ranked = Object.entries(w).sort((a, b) => b[1] - a[1]).map(x => x[0]);
+  const specific = ranked.filter(c => c !== 'drama').slice(0, 3);
+  return specific.length >= 2 ? specific : ranked.slice(0, 3); // "Drama" alone is too broad — only lead with it when there's nothing else
+}
+const discGenreLabel = (c) => DISC_GENRE_LABEL[c] || (c.charAt(0).toUpperCase() + c.slice(1));
+function discGenreStale() {
+  const rec = disc.recs.get('genre:jdrama');
+  return !rec || rec.sig !== discGenreTop().join(',') || Date.now() - rec.at > DISC_GENRE_TTL;
+}
+async function discFetchGenre(top, key) {
+  const tvIds = [...new Set(top.map(c => DISC_GENRE_TV[c]).filter(Boolean))];
+  const mvIds = [...new Set(top.map(c => DISC_GENRE_MOVIE[c]).filter(Boolean))];
+  const rows = [], seen = new Set();
+  const add = (list) => list.forEach(r => { const k = r[0] + ':' + r[1]; if (!seen.has(k)) { seen.add(k); rows.push(r); } });
+  for (let page = 1; page <= 3; page++) {
+    if (tvIds.length) {
+      const j = await discFetchJSON(`https://api.themoviedb.org/3/discover/tv?api_key=${key}&with_origin_country=JP&with_genres=${encodeURIComponent(tvIds.join('|'))}&without_genres=16&vote_count.gte=8&first_air_date.gte=1990-01-01&sort_by=popularity.desc&page=${page}`);
+      add(discCompactList(j?.results, 'tv', true));
+    }
+    if (mvIds.length) {
+      const j = await discFetchJSON(`https://api.themoviedb.org/3/discover/movie?api_key=${key}&with_original_language=ja&with_genres=${encodeURIComponent(mvIds.join('|'))}&without_genres=16&vote_count.gte=20&primary_release_date.gte=1990-01-01&sort_by=popularity.desc&page=${page}`);
+      add(discCompactList(j?.results, 'movie', true));
+    }
+  }
+  return { at: Date.now(), sig: top.join(','), r: rows };
+}
+
+// ── Scan ──
 async function discRunQueue(items, worker) {
   let i = 0;
   const lane = async () => {
@@ -3717,19 +3930,55 @@ async function discRunQueue(items, worker) {
   };
   await Promise.all(Array.from({ length: DISC_CONCURRENCY }, lane));
 }
+function discPlan(media) {
+  const kind = discPoolKind(media);
+  const { pool, missingTitles, noTmdb } = discBuildPool(kind);
+  const plan = { origin: [], people: [], recs: [], genre: false, poolSize: pool.size, scannedPeople: 0, missingTitles, noTmdb };
+  if (kind !== 'anime') plan.origin = data.series.filter(discNeedsOrigin);
+  pool.forEach(p => { if (discIsScanned(p.id, kind)) plan.scannedPeople++; });
+  plan.people = [...pool.values()].filter(p => !discIsScanned(p.id, kind))
+    .sort((a, b) => a.minOrder - b.minOrder || b.knownFrom.length - a.knownFrom.length);
+  plan.recs = discRecSources(media).filter(src => !discRecFresh(src.key));
+  plan.genre = media === 'jdrama' && discGenreTop().length > 0 && discGenreStale();
+  return plan;
+}
 async function toggleDiscoverScan() {
   if (discScan.running) { discScan.stop = true; discUpdateScanUI(); return; }
   const key = data.settings.tmdb_api_key;
   if (!key) { showToast('Add your TMDB API key in Settings', 'error'); return; }
   await discLoad();
-  const kind = discPoolKind(discMedia);
-  const { pool } = discBuildPool(kind);
-  const people = [...pool.values()]
-    .filter(p => !discIsScanned(p.id, kind))
-    .sort((a, b) => a.minOrder - b.minOrder || b.knownFrom.length - a.knownFrom.length);
-  discScan = { running: true, stop: false, phase: 'people', done: 0, total: people.length, failed: 0, error: null };
-  discUpdateScanUI();
-  await discRunQueue(people, async (p) => {
+  const media = discMedia;
+  discScan = { running: true, stop: false, phase: 'origin', done: 0, total: 0, failed: 0, error: null };
+  const phase = async (name, items, worker) => {
+    if (discScan.stop || !items.length) return;
+    discScan.phase = name; discScan.done = 0; discScan.total = items.length;
+    discUpdateScanUI();
+    await discRunQueue(items, worker);
+    await discFlush();
+  };
+
+  // 1. Country of origin (decides who counts as Japanese live-action, so it comes first)
+  const first = discPlan(media);
+  await phase('origin', first.origin, (s) => discDetectOrigin(s, key));
+  if (first.origin.length) { saveToDrive(); discRender(true); }
+
+  // 2. Recommendations, 3. genre browse (fast — gives results before the long filmography pass)
+  const plan = discPlan(media);
+  await phase('recs', plan.recs, async (src) => {
+    const [m, id] = src.key.split(':');
+    const json = await discFetchJSON(`https://api.themoviedb.org/3/${m}/${id}/recommendations?api_key=${key}`);
+    const val = { at: Date.now(), r: discCompactList(json?.results, m, false) };
+    disc.recs.set(src.key, val);
+    discQueueWrite('recs', src.key, val);
+  });
+  if (plan.genre) await phase('genre', [1], async () => {
+    const val = await discFetchGenre(discGenreTop(), key);
+    disc.recs.set('genre:jdrama', val);
+    discQueueWrite('recs', 'genre:jdrama', val);
+  });
+
+  // 4. Filmographies
+  await phase('people', plan.people, async (p) => {
     const json = await discFetchJSON(`https://api.themoviedb.org/3/person/${p.id}/combined_credits?api_key=${key}`);
     const val = discCompactCredits(json);
     disc.personCredits.set(p.id, val);
@@ -3752,16 +4001,21 @@ async function toggleDiscoverScan() {
   else if (stopped) showToast('Scan paused — press Resume to carry on');
   else showToast('Scan complete', 'success');
 }
+const discRender = (keep) => { if (currentView.startsWith('discover')) renderDiscover(keep); };
 async function rescanDiscover() {
   if (discScan.running) { showToast('Pause the current scan first', 'error'); return; }
-  if (!confirm('Clear the discovery cache and re-scan every star? Use this when filmographies are out of date.')) return;
-  try { await discTx('personCredits', 'readwrite', st => st.clear()); } catch (e) {}
+  if (!confirm('Clear the discovery cache and re-scan everything? Use this when filmographies or recommendations are out of date.')) return;
+  try {
+    await discTx('personCredits', 'readwrite', st => st.clear());
+    await discTx('recs', 'readwrite', st => st.clear());
+  } catch (e) {}
   disc.personCredits = new Map();
+  disc.recs = new Map();
   renderDiscover();
   toggleDiscoverScan();
 }
+
 // ── Scan status UI ──
-function discFmt(n) { return n.toLocaleString(); }
 function discUpdateScanUI() {
   if (!document.getElementById('disc-scan-line')) return;
   const line = document.getElementById('disc-scan-line');
@@ -3774,10 +4028,16 @@ function discUpdateScanUI() {
   if (discScan.running) {
     const remaining = Math.max(0, discScan.total - discScan.done);
     const mins = Math.ceil(remaining / (DISC_CONCURRENCY * 5) / 60);
-    line.textContent = discScan.stop
-      ? 'Pausing…'
-      : `Scanning filmographies: ${discFmt(discScan.done)} of ${discFmt(discScan.total)} stars`;
-    sub.textContent = `About ${mins} min left. Results fill in as you go; you can keep browsing or pause and resume later.`;
+    const label = {
+      origin: `Checking where titles are from: ${discFmt(discScan.done)} of ${discFmt(discScan.total)}`,
+      recs: `Reading recommendations: ${discFmt(discScan.done)} of ${discFmt(discScan.total)} titles`,
+      genre: 'Finding titles that match your taste…',
+      people: `Scanning filmographies: ${discFmt(discScan.done)} of ${discFmt(discScan.total)} stars`,
+    }[discScan.phase];
+    line.textContent = discScan.stop ? 'Pausing…' : label;
+    sub.textContent = discScan.phase === 'people' && mins > 0
+      ? `About ${mins} min left. Results fill in as you go; you can keep browsing or pause and resume later.`
+      : 'Results fill in as each step finishes. You can keep browsing or pause and resume later.';
     btn.textContent = 'Pause';
     btn.className = 'btn btn-secondary btn-sm';
     prog.classList.remove('hidden');
@@ -3787,41 +4047,47 @@ function discUpdateScanUI() {
 
   prog.classList.add('hidden');
   btn.className = 'btn btn-primary btn-sm';
-  const { pool, missingTitles, noTmdb } = discBuildPool();
-  let scanned = 0;
-  pool.forEach(p => { if (discIsScanned(p.id)) scanned++; });
-  const isAnimePool = discPoolKind(discMedia) === 'anime';
-  const toGo = pool.size - scanned;
-  let noCast = missingTitles > 0
-    ? ` ${discFmt(missingTitles)} library title${missingTitles !== 1 ? 's have' : ' has'} no cast yet — run ↻ Refresh Cast (All) in Settings to include them.`
-    : '';
-  if (noTmdb > 0) noCast += isAnimePool
-    ? ` ${discFmt(noTmdb)} anime ${noTmdb !== 1 ? 'have' : 'has'} no TMDB ID, so ${noTmdb !== 1 ? 'their' : 'its'} cast can't be used — run 🔗 Match missing TMDB IDs in Settings.`
-    : ` ${discFmt(noTmdb)} TV show${noTmdb !== 1 ? 's' : ''}/movie${noTmdb !== 1 ? 's have' : ' has'} no TMDB ID, so ${noTmdb !== 1 ? 'they' : 'it'} can't be matched here — run 🔗 Match missing TMDB IDs in Settings.`;
-  if (!scanned) {
-    line.textContent = `${discFmt(pool.size)} stars ready to scan`;
-    sub.textContent = (isAnimePool
-      ? `Top ${DISC_CAST_LIMIT} cast (mostly voice actors) from each anime in your library.`
-      : `Top ${DISC_CAST_LIMIT} billed cast from each show and movie in your library.`) + ' Results appear as the scan runs.' + noCast;
+  const plan = discPlan(discMedia);
+  const kind = discPoolKind(discMedia);
+  const noun = kind === 'anime' ? 'anime' : kind === 'jdrama' ? 'J-drama title' : 'show/movie';
+  const todo = [];
+  if (plan.origin.length) todo.push(`${discFmt(plan.origin.length)} title${plan.origin.length !== 1 ? 's' : ''} to check for country of origin`);
+  if (plan.recs.length) todo.push(`${discFmt(plan.recs.length)} recommendation list${plan.recs.length !== 1 ? 's' : ''}`);
+  if (plan.genre) todo.push('genre browse');
+  if (plan.people.length) todo.push(`${discFmt(plan.people.length)} star${plan.people.length !== 1 ? 's' : ''}`);
+  let notes = '';
+  if (plan.missingTitles > 0) notes += ` ${discFmt(plan.missingTitles)} ${noun}${plan.missingTitles !== 1 ? 's have' : ' has'} no cast yet — run ↻ Refresh Cast (All) in Settings to include ${plan.missingTitles !== 1 ? 'them' : 'it'}.`;
+  if (plan.noTmdb > 0) notes += ` ${discFmt(plan.noTmdb)} ${noun}${plan.noTmdb !== 1 ? 's have' : ' has'} no TMDB ID and can't be used — run 🔗 Match missing TMDB IDs in Settings.`;
+  if (kind === 'jdrama' && plan.poolSize === 0 && !plan.origin.length && !data.series.some(isJapaneseLive)) notes += ' No Japanese live-action titles in your library yet, so there is nothing to build from.';
+
+  const started = plan.scannedPeople > 0 || disc.recs.size > 0;
+  if (!todo.length) {
+    line.textContent = `All ${discFmt(plan.poolSize)} stars scanned`;
+    sub.textContent = (disc.lastScan ? `Last scan ${new Date(disc.lastScan).toLocaleDateString()}. Rescan all to pick up new credits.` : '') + notes;
     btn.textContent = 'Scan';
-  } else if (toGo > 0) {
-    line.textContent = `${discFmt(scanned)} of ${discFmt(pool.size)} stars scanned`;
-    sub.textContent = `${discFmt(toGo)} star${toGo !== 1 ? 's' : ''} not scanned yet.` + noCast;
-    btn.textContent = 'Resume';
   } else {
-    line.textContent = `All ${discFmt(pool.size)} stars scanned`;
-    sub.textContent = (disc.lastScan ? `Last scan ${new Date(disc.lastScan).toLocaleDateString()}. Rescan all to pick up new credits.` : '') + noCast;
-    btn.textContent = 'Scan';
+    line.textContent = started ? `${discFmt(plan.scannedPeople)} of ${discFmt(plan.poolSize)} stars scanned` : `${discFmt(plan.poolSize)} stars ready to scan`;
+    sub.textContent = `Still to do: ${todo.join(', ')}.` + notes;
+    btn.textContent = started ? 'Resume' : 'Scan';
   }
 }
 
 // ── Aggregation + rendering ──
 function discNormTitle(t) { return String(t || '').toLowerCase().replace(/[^a-z0-9]+/g, ''); }
+function discCodesFor(media) {
+  if (media === 'tv') return new Set([1]);
+  if (media === 'movie') return new Set([0]);
+  const base = media === 'anime' ? [2, 3] : [4, 5];
+  const f = discFormats[media];
+  return new Set(base.filter((c, i) => f.has(i === 0 ? 's' : 'f')));
+}
 function discAggregate(media) {
-  const { pool } = discBuildPool(discPoolKind(media));
-  const codes = media === 'movie' ? new Set([0]) : media === 'tv' ? new Set([1]) : discAnimeFormats;
+  const kind = discPoolKind(media);
+  const { pool } = discBuildPool(kind);
+  const codes = discCodesFor(media);
+  const split = media === 'anime' || media === 'jdrama'; // these pages mix series + films, so keys carry an s/f prefix
   const libById = new Map();    // tmdb_id → entry (same ID namespace)
-  const libByTitle = new Map(); // normalised title → anime entry (anime films only; see below)
+  const libByTitle = new Map(); // normalised title → anime entry (anime films only)
   const animeIds = new Set();
   data.series.forEach(s => {
     const type = s.type || 'tv';
@@ -3832,45 +4098,94 @@ function discAggregate(media) {
     if (media === 'anime') {
       // Library anime carry TMDB *TV* IDs (autoMatchTMDB searches /search/tv), so series match by ID.
       if (id && (type === 'anime' || type === 'tv')) libById.set('s' + id, s);
-      // Anime films: match a movie entry by ID, or an anime entry by title as a best effort.
       if (id && type === 'movie') libById.set('f' + id, s);
       if (type === 'anime') libByTitle.set(discNormTitle(s.title), s);
     }
+    if (media === 'jdrama' && id) {
+      if (type === 'tv') libById.set('s' + id, s);
+      if (type === 'movie') libById.set('f' + id, s);
+    }
   });
   const titles = new Map();
+  const ensure = (code, id, t, d, poster) => {
+    const sid = String(id);
+    if (media === 'tv' && animeIds.has(sid)) return null;
+    const film = code === 3 || code === 5;
+    const key = split ? (film ? 'f' : 's') + sid : sid;
+    let e = titles.get(key);
+    if (!e) {
+      const lib = libById.get(key) || (media === 'anime' && code === 3 ? libByTitle.get(discNormTitle(t)) : null) || null;
+      e = { id, t, d, poster, film, year: parseInt(d.slice(0, 4)) || 0, lib, stars: [], recBy: [], genre: null };
+      titles.set(key, e);
+    }
+    return e;
+  };
+
+  // ★ Stars
   let scanned = 0;
   for (const p of pool.values()) {
-    if (!discIsScanned(p.id, discPoolKind(media))) continue;
+    if (!discIsScanned(p.id, kind)) continue;
     scanned++;
     for (const [m, id, t, d, poster, ch] of discRows(disc.personCredits.get(p.id))) {
       if (!codes.has(m)) continue;
-      const sid = String(id);
-      if (media === 'tv' && animeIds.has(sid)) continue;
-      const key = media === 'anime' ? (m === 3 ? 'f' : 's') + sid : sid;
-      let e = titles.get(key);
-      if (!e) {
-        const lib = libById.get(key) || (m === 3 ? libByTitle.get(discNormTitle(t)) : null) || null;
-        e = { id, t, d, poster, film: m === 3, year: parseInt(d.slice(0, 4)) || 0, lib, stars: [] };
-        titles.set(key, e);
-      }
-      e.stars.push({ p, ch });
+      const e = ensure(m, id, t, d, poster);
+      if (e) e.stars.push({ p, ch });
     }
   }
+  // 👍 Recommendations
+  for (const src of discRecSources(media)) {
+    const rec = disc.recs.get(src.key);
+    if (!rec) continue;
+    for (const [m, id, t, d, poster] of rec.r) {
+      if (!codes.has(m)) continue;
+      const e = ensure(m, id, t, d, poster);
+      if (e && !e.recBy.some(r => r.libId === src.s.id)) e.recBy.push({ title: src.s.title, libId: src.s.id });
+    }
+  }
+  // ◆ Genre taste (J-Drama)
+  if (media === 'jdrama') {
+    const g = disc.recs.get('genre:jdrama');
+    if (g) {
+      const top = new Set(g.sig ? g.sig.split(',') : []);
+      for (const [m, id, t, d, poster, , gids] of g.r) {
+        if (!codes.has(m)) continue;
+        const idCanon = m === 5 ? DISC_MOVIE_ID_CANON : DISC_TV_ID_CANON;
+        const matched = [...new Set((gids || []).flatMap(x => idCanon[x] || []).filter(c => top.has(c)))];
+        if (!matched.length) continue;
+        const e = ensure(m, id, t, d, poster);
+        if (e) e.genre = matched.map(discGenreLabel);
+      }
+    }
+  }
+
   const items = [...titles.values()];
-  items.forEach(e => e.stars.sort((a, b) => b.p.knownFrom.length - a.p.knownFrom.length || a.p.minOrder - b.p.minOrder));
+  items.forEach(e => {
+    e.stars.sort((a, b) => b.p.knownFrom.length - a.p.knownFrom.length || a.p.minOrder - b.p.minOrder);
+    e.signals = e.stars.length + e.recBy.length + (e.genre ? 1 : 0);
+    e.score = e.stars.length + e.recBy.length * 1.5 + (e.genre ? Math.min(e.genre.length, 3) * 0.5 : 0);
+  });
   return { items, poolSize: pool.size, scanned };
 }
-function toggleDiscAnimeFormat(code, el) {
-  if (discAnimeFormats.has(code) && discAnimeFormats.size === 1) return; // keep at least one on
-  if (discAnimeFormats.has(code)) discAnimeFormats.delete(code); else discAnimeFormats.add(code);
-  el.classList.toggle('active-anime', discAnimeFormats.has(code));
+function toggleDiscFormat(fmt) {
+  const set = discFormats[discMedia];
+  if (!set) return;
+  if (set.has(fmt) && set.size === 1) return; // keep at least one on
+  if (set.has(fmt)) set.delete(fmt); else set.add(fmt);
+  syncDiscFormatPills();
   renderDiscover();
+}
+function syncDiscFormatPills() {
+  const cls = discMedia === 'jdrama' ? 'active-jdrama' : 'active-anime';
+  document.querySelectorAll('[data-disc-format]').forEach(el => {
+    el.className = 'type-pill' + (discFormats[discMedia]?.has(el.dataset.discFormat) ? ' ' + cls : '');
+  });
 }
 function openDiscoverView(media) {
   discMedia = media;
   discRendered = 0;
-  document.getElementById('disc-title').textContent = { tv: 'TV', movie: 'Movies', anime: 'Anime' }[media] + ' from Your Stars';
-  document.getElementById('disc-anime-formats').classList.toggle('hidden', media !== 'anime');
+  document.getElementById('disc-title').textContent = { tv: 'Discover TV', movie: 'Discover Movies', anime: 'Discover Anime', jdrama: 'Discover J-Drama' }[media];
+  document.getElementById('disc-anime-formats').classList.toggle('hidden', !discFormats[media]);
+  syncDiscFormatPills();
   document.getElementById('disc-grid').innerHTML = '';
   document.getElementById('main').scrollTop = 0;
   if (!discObserver) {
@@ -3879,7 +4194,7 @@ function openDiscoverView(media) {
     }, { root: document.getElementById('main'), rootMargin: '800px' });
     discObserver.observe(document.getElementById('disc-sentinel'));
   }
-  discLoad().then(() => { discUpdateScanUI(); renderDiscover(); });
+  discLoad().then(() => { discUpdateScanUI(); renderDiscover(); renderFollowRow(); });
 }
 function setDiscoverSort(sort, btn) {
   discSort = sort;
@@ -3899,6 +4214,16 @@ function discLiveRender() {
   discLastLiveRender = now;
   renderDiscover(true);
 }
+function discWhy(e) {
+  const parts = [];
+  if (e.stars.length) {
+    const names = e.stars.slice(0, 2).map(s => s.p.followed ? `${s.p.name} (followed)` : s.p.name).join(', ');
+    parts.push(names + (e.stars.length > 2 ? ` +${e.stars.length - 2}` : ''));
+  }
+  if (e.recBy.length) parts.push(e.recBy.length === 1 ? `Rec. for ${e.recBy[0].title}` : `Recommended by ${e.recBy.length} of yours`);
+  if (e.genre) parts.push(`${e.genre.join(' / ')} taste`);
+  return parts.join(' · ');
+}
 function renderDiscover(keepPosition) {
   if (!disc.loaded) return;
   const main = document.getElementById('main');
@@ -3908,16 +4233,18 @@ function renderDiscover(keepPosition) {
   const q = document.getElementById('disc-search').value.trim().toLowerCase();
   const items = q ? all.filter(e => e.t.toLowerCase().includes(q) || e.stars.some(s => s.p.name.toLowerCase().includes(q))) : all;
 
+  const byTitle = (a, b) => a.t.localeCompare(b.t);
   const cmp = {
-    'stars':     (a, b) => b.stars.length - a.stars.length || b.year - a.year || a.t.localeCompare(b.t),
-    'az':        (a, b) => a.t.localeCompare(b.t),
-    'year-desc': (a, b) => b.year - a.year || a.t.localeCompare(b.t),
-    'year-asc':  (a, b) => (a.year || 9999) - (b.year || 9999) || a.t.localeCompare(b.t),
+    'match':     (a, b) => b.score - a.score || b.stars.length - a.stars.length || b.year - a.year || byTitle(a, b),
+    'stars':     (a, b) => b.stars.length - a.stars.length || b.score - a.score || b.year - a.year || byTitle(a, b),
+    'az':        byTitle,
+    'year-desc': (a, b) => b.year - a.year || byTitle(a, b),
+    'year-asc':  (a, b) => (a.year || 9999) - (b.year || 9999) || byTitle(a, b),
   }[discSort];
   const tiers = [
     { label: 'In your library', items: discHideTracked ? [] : items.filter(e => e.lib) },
-    { label: 'Shared by 2+ of your stars', items: items.filter(e => !e.lib && e.stars.length >= 2) },
-    { label: 'One of your stars', items: items.filter(e => !e.lib && e.stars.length === 1) },
+    { label: 'Strong matches', sub: 'two or more signals', items: items.filter(e => !e.lib && e.signals >= 2) },
+    { label: 'Single match', items: items.filter(e => !e.lib && e.signals === 1) },
   ];
   discList = [];
   tiers.forEach(t => {
@@ -3927,19 +4254,19 @@ function renderDiscover(keepPosition) {
     t.items.forEach(e => discList.push(e));
   });
 
-  const noun = discMedia === 'movie' ? 'movie' : discMedia === 'anime' ? 'anime title' : 'show';
+  const noun = discMedia === 'movie' ? 'movie' : discMedia === 'anime' ? 'anime title' : discMedia === 'jdrama' ? 'J-drama title' : 'show';
   const newCount = all.filter(e => !e.lib).length;
-  document.getElementById('disc-sub').textContent = scanned
-    ? `${discFmt(newCount)} ${noun}${newCount !== 1 ? 's' : ''} you haven't tracked, from ${discFmt(scanned)} of your ${discFmt(poolSize)} stars`
-    : 'Everything your stars have been in, ranked by how many of them appear together';
+  document.getElementById('disc-sub').textContent = all.length
+    ? `${discFmt(newCount)} ${noun}${newCount !== 1 ? 's' : ''} you haven't tracked` + (scanned ? ` · ${discFmt(scanned)} of ${discFmt(poolSize)} stars scanned` : '')
+    : 'Titles your stars have been in, that others recommend, or that match your taste';
 
   const empty = document.getElementById('disc-empty');
   empty.classList.toggle('hidden', discList.length > 0);
   if (!discList.length) {
-    document.getElementById('disc-empty-title').textContent = !scanned ? 'No scan yet' : q ? 'No matches' : 'Nothing to show';
-    document.getElementById('disc-empty-sub').textContent = !scanned
-      ? 'Press Scan above to read your stars\' filmographies.'
-      : q ? 'Try a different title or star name.' : 'Turn off "Hide titles in my library" or scan more stars.';
+    document.getElementById('disc-empty-title').textContent = !all.length ? 'No scan yet' : q ? 'No matches' : 'Nothing to show';
+    document.getElementById('disc-empty-sub').textContent = !all.length
+      ? 'Press Scan above to read filmographies and recommendations.'
+      : q ? 'Try a different title or star name.' : 'Turn off "Hide titles in my library" or scan more.';
   }
   document.getElementById('disc-grid').innerHTML = '';
   discRendered = 0;
@@ -3951,7 +4278,8 @@ function discRenderMore(n) {
   const grid = document.getElementById('disc-grid');
   const end = Math.min(discList.length, discRendered + (n || DISC_CHUNK));
   if (discRendered >= end) return;
-  const icon = discMedia === 'movie' ? '🎬' : discMedia === 'anime' ? '⛩' : '📺';
+  const icon = { movie: '🎬', anime: '⛩', jdrama: '🗾' }[discMedia] || '📺';
+  const mixed = discMedia === 'anime' || discMedia === 'jdrama';
   let html = '';
   for (let i = discRendered; i < end; i++) {
     const e = discList[i];
@@ -3959,18 +4287,18 @@ function discRenderMore(n) {
       html += `<div class="disc-tier"><span class="disc-tier-title">${discEsc(e.label)}</span><span class="disc-tier-count">${discFmt(e.count)}</span></div>`;
       continue;
     }
-    const names = e.stars.slice(0, 3).map(s => s.p.name).join(', ') + (e.stars.length > 3 ? ` +${e.stars.length - 3}` : '');
+    const badge = [e.stars.length ? `★ ${e.stars.length}` : '', e.recBy.length ? `👍 ${e.recBy.length}` : '', e.genre ? '◆' : ''].filter(Boolean).join(' ');
     html += `<div class="disc-card${e.lib ? ' tracked' : ''}" onclick="openDiscoverItem(${i})">
       ${e.lib ? '<div class="in-library-badge">✓ In Library</div>' : ''}
-      <div class="disc-count">★ ${e.stars.length}</div>
-      ${discMedia === 'anime' && e.film ? '<div class="disc-film">FILM</div>' : ''}
+      <div class="disc-count">${badge}</div>
+      ${mixed && e.film ? '<div class="disc-film">FILM</div>' : ''}
       ${e.poster
         ? `<img class="disc-poster" src="https://image.tmdb.org/t/p/w185${e.poster}" loading="lazy" alt="" onerror="this.outerHTML='<div class=\\'disc-poster-ph\\'>${icon}</div>'">`
         : `<div class="disc-poster-ph">${icon}</div>`}
       <div class="disc-body">
         <div class="disc-title">${discEsc(e.t)}</div>
         <div class="disc-year">${e.year || 'TBA'}</div>
-        <div class="disc-names">${discEsc(names)}</div>
+        <div class="disc-names">${discEsc(discWhy(e))}</div>
       </div>
     </div>`;
   }
@@ -3983,10 +4311,10 @@ async function openDiscoverItem(i) {
   const e = discList[i];
   if (!e || e.header) return;
   discModalItem = e;
-  const isAnime = discMedia === 'anime';
-  const isMovie = discMedia === 'movie' || (isAnime && e.film);
-  const icon = isAnime ? '⛩' : isMovie ? '🎬' : '📺';
-  const kindLabel = isAnime ? (e.film ? 'Anime film' : 'Anime series') : isMovie ? 'Movie' : 'TV series';
+  const isAnime = discMedia === 'anime', isJd = discMedia === 'jdrama';
+  const isMovie = discMedia === 'movie' || ((isAnime || isJd) && e.film);
+  const icon = isAnime ? '⛩' : isJd ? '🗾' : isMovie ? '🎬' : '📺';
+  const kindLabel = isAnime ? (e.film ? 'Anime film' : 'Anime series') : isJd ? (e.film ? 'Japanese film' : 'Japanese drama') : isMovie ? 'Movie' : 'TV series';
   document.getElementById('dm-hero').innerHTML = `
     ${e.poster ? `<img class="dm-poster" src="https://image.tmdb.org/t/p/w342${e.poster}" alt="">` : `<div class="dm-poster-ph">${icon}</div>`}
     <div style="flex:1;min-width:0;">
@@ -3997,14 +4325,24 @@ async function openDiscoverItem(i) {
         ? `<button class="btn btn-secondary btn-sm" onclick="discOpenLibrary()">Open in library</button>`
         : `<button class="btn btn-primary btn-sm" onclick="discAddToLibrary()">+ Add to library</button>`}
     </div>`;
-  document.getElementById('dm-stars-label').textContent = `Your stars in this ${isAnime ? (e.film ? 'film' : 'anime') : isMovie ? 'movie' : 'show'} (${e.stars.length})`;
+  const chips = [];
+  e.recBy.slice(0, 4).forEach(r => chips.push(`<span class="dm-why-chip">👍 Recommended for <b>${discEsc(r.title)}</b></span>`));
+  if (e.recBy.length > 4) chips.push(`<span class="dm-why-chip">+${e.recBy.length - 4} more of your titles</span>`);
+  if (e.genre) chips.push(`<span class="dm-why-chip">◆ Matches your <b>${discEsc(e.genre.join(' / '))}</b> taste</span>`);
+  document.getElementById('dm-why').innerHTML = chips.join('');
+  const noun = isAnime ? (e.film ? 'film' : 'anime') : isMovie ? 'movie' : 'show';
+  const lbl = document.getElementById('dm-stars-label');
+  lbl.style.display = e.stars.length ? '' : 'none';
+  lbl.textContent = `Your stars in this ${noun} (${e.stars.length})`;
   document.getElementById('dm-stars').innerHTML = e.stars.map(({ p, ch }) => {
-    const from = p.knownFrom.slice(0, 3).map(k => `<b>${discEsc(k.title)}</b>`).join(', ') + (p.knownFrom.length > 3 ? ` +${p.knownFrom.length - 3} more` : '');
+    const from = p.knownFrom.length
+      ? 'From ' + p.knownFrom.slice(0, 3).map(k => `<b>${discEsc(k.title)}</b>`).join(', ') + (p.knownFrom.length > 3 ? ` +${p.knownFrom.length - 3} more` : '')
+      : '⭐ You follow this star';
     return `<div class="dm-star" onclick="discOpenPerson(${p.id})">
       ${p.profile_path ? `<img class="dm-star-photo" src="https://image.tmdb.org/t/p/w92${p.profile_path}" loading="lazy" alt="">` : '<div class="dm-star-ph">👤</div>'}
       <div style="min-width:0;">
         <div class="dm-star-name">${discEsc(p.name)}${ch ? ` <span class="dm-star-role">as ${discEsc(ch)}</span>` : ''}</div>
-        <div class="dm-star-from">From ${from}</div>
+        <div class="dm-star-from">${from}</div>
       </div>
     </div>`;
   }).join('');
@@ -4044,10 +4382,85 @@ async function discAddToLibrary() {
     await searchAnilistAnime();
     return;
   }
-  const mediaType = discMedia === 'movie' ? 'movie' : 'tv';
+  const mediaType = discMedia === 'movie' || (discMedia === 'jdrama' && e.film) ? 'movie' : 'tv';
   openAddModal('tmdb');
   setTmdbSearchType(mediaType);
   await selectTMDB(e.id, mediaType);
+}
+
+// ─── Follow a star (add someone to the tracked pool without owning any of their titles) ─────
+let followSearchTimer = null;
+function renderFollowRow() {
+  const row = document.getElementById('disc-follow-row');
+  if (!row) return;
+  const kind = discPoolKind(discMedia);
+  const noun = { live: 'star', anime: 'voice actor', jdrama: 'Japanese star' }[kind];
+  const followed = discFollowed(kind);
+  row.innerHTML = followed.map(f => `<div class="disc-follow-chip">
+      ${f.profile_path ? `<img src="https://image.tmdb.org/t/p/w92${f.profile_path}" alt="">` : '<div class="fc-ph">👤</div>'}
+      <span>${discEsc(f.name)}</span>
+      <span class="fc-x" onclick="unfollowStar(${f.id}, '${kind}')" title="Unfollow">✕</span>
+    </div>`).join('')
+    + `<button class="btn btn-ghost btn-sm" onclick="openFollowModal()">+ Follow ${followed.length ? 'another' : 'a'} ${noun}</button>`;
+}
+function openFollowModal() {
+  const kind = discPoolKind(discMedia);
+  const label = { live: 'Adds someone to your tracked stars for TV and Movies, even if you don\'t own any of their titles yet.', anime: 'Adds a voice actor to your tracked stars for Anime.', jdrama: 'Adds an actor to your tracked stars for J-Drama.' }[kind];
+  document.getElementById('follow-star-sub').textContent = label;
+  document.getElementById('follow-star-input').value = '';
+  document.getElementById('follow-star-results').innerHTML = '';
+  document.getElementById('follow-star-modal').classList.remove('hidden');
+  document.getElementById('follow-star-modal').dataset.kind = kind;
+  setTimeout(() => document.getElementById('follow-star-input').focus(), 50);
+}
+function debounceFollowSearch() {
+  clearTimeout(followSearchTimer);
+  followSearchTimer = setTimeout(searchFollowStar, 400);
+}
+async function searchFollowStar() {
+  const q = document.getElementById('follow-star-input').value.trim();
+  const results = document.getElementById('follow-star-results');
+  if (!q) { results.innerHTML = ''; return; }
+  const key = data.settings.tmdb_api_key;
+  if (!key) { results.innerHTML = '<div style="padding:12px;color:var(--muted);font-size:13px;">Add your TMDB API key in Settings first</div>'; return; }
+  results.innerHTML = '<div style="padding:12px;color:var(--muted);font-size:13px;">Searching…</div>';
+  try {
+    const json = await discFetchJSON(`https://api.themoviedb.org/3/search/person?api_key=${key}&query=${encodeURIComponent(q)}`);
+    const kind = document.getElementById('follow-star-modal').dataset.kind;
+    const already = new Set(discFollowed(kind).map(f => f.id));
+    const list = (json?.results || []).slice(0, 8);
+    if (!list.length) { results.innerHTML = '<div style="padding:12px;color:var(--muted);font-size:13px;">No one found</div>'; return; }
+    results.innerHTML = list.map(p => {
+      const known = (p.known_for || []).map(k => k.title || k.name).filter(Boolean).slice(0, 3).join(', ');
+      return `<div class="fs-item" onclick='followStar(${JSON.stringify({ id: p.id, name: p.name, profile_path: p.profile_path || null })}, "${kind}")'>
+        ${p.profile_path ? `<img src="https://image.tmdb.org/t/p/w92${p.profile_path}" alt="">` : '<div class="fs-ph">👤</div>'}
+        <div>
+          <div class="fs-name">${discEsc(p.name)}</div>
+          ${known ? `<div class="fs-known">${discEsc(known)}</div>` : ''}
+        </div>
+        ${already.has(p.id) ? '<span class="fs-already">✓ Following</span>' : ''}
+      </div>`;
+    }).join('');
+  } catch (e) {
+    results.innerHTML = `<div style="padding:12px;color:var(--dropped);font-size:13px;">${discEsc(e.message)}</div>`;
+  }
+}
+function followStar(person, kind) {
+  data.settings.followed_stars = data.settings.followed_stars || [];
+  if (data.settings.followed_stars.some(f => f.id === person.id && f.kind === kind)) { showToast('Already following', 'success'); return; }
+  data.settings.followed_stars.push({ ...person, kind });
+  saveToDrive();
+  closeModal('follow-star-modal');
+  renderFollowRow();
+  discUpdateScanUI();
+  showToast(`Following ${person.name} — scan to pull their filmography`, 'success');
+}
+function unfollowStar(id, kind) {
+  data.settings.followed_stars = (data.settings.followed_stars || []).filter(f => !(f.id === id && f.kind === kind));
+  saveToDrive();
+  renderFollowRow();
+  discUpdateScanUI();
+  renderDiscover(true);
 }
 
 
@@ -4298,7 +4711,7 @@ function calRefreshTargets(force) {
       const key = `tv:${s.tmdb_id}`;
       const c = cal.items.get(key);
       const maxAge = c?.ended ? 30 * CAL_DAY : CAL_REFRESH_HOURS * 3600000;
-      if (!c || now - c.at > maxAge || (force && !c.ended)) shows.push({ s, key });
+      if (force || !c || now - c.at > maxAge) shows.push({ s, key }); // ↻ Refresh dates re-checks ended shows too (catches revivals)
     }
   }
   return { shows, movies };
