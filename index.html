@@ -460,6 +460,26 @@
   /* ── Discover TV/Movies switch (all sizes) ── */
   .disc-media-switch { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
 
+  /* ── Availability / To Buy ── */
+  .avail-box { display:flex; flex-direction:column; gap:7px; }
+  .avail-row { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+  .avail-note { font-size:12px; color:var(--muted); }
+  .avail-meta { font-size:11px; color:var(--muted); line-height:1.5; }
+  .avail-meta a { color:var(--accent2); text-decoration:none; }
+  .avail-chip { font-family:'Inter',sans-serif; font-size:10px; font-weight:600; padding:3px 9px; border-radius:20px; cursor:pointer; white-space:nowrap; max-width:200px; overflow:hidden; text-overflow:ellipsis; border:1px solid transparent; background:var(--border); color:var(--muted); }
+  .avail-chip.static { cursor:default; max-width:none; font-size:11px; }
+  .avail-chip.stream { background:rgba(96,165,250,0.12); color:var(--plan); }
+  .avail-chip.buy { background:rgba(245,158,11,0.14); color:#f59e0b; border-color:rgba(245,158,11,0.35); }
+  .avail-chip.owned { background:rgba(34,211,165,0.12); color:var(--watching); border-color:rgba(34,211,165,0.3); }
+  .avail-chip:not(.static):hover { filter:brightness(1.25); }
+  .season-chip-slot { display:flex; }
+  .buy-badge { position:absolute; top:8px; right:8px; font-size:9px; font-weight:700; padding:2px 7px; border-radius:20px; background:rgba(245,158,11,0.94); color:#0e0f13; max-width:calc(100% - 50px); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .buy-badge.owned { background:rgba(34,211,165,0.94); }
+  .buy-row { display:flex; gap:12px; align-items:flex-start; padding:10px; border-radius:12px; border-bottom:1px solid var(--border); }
+  .buy-main { flex:1; min-width:0; display:flex; flex-direction:column; gap:3px; }
+  .buy-title { font-size:13px; font-weight:600; cursor:pointer; display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+  .buy-actions { display:flex; flex-wrap:wrap; gap:6px; margin-top:5px; }
+
   /* ── Mobile chrome (hidden on desktop) ── */
   .mobile-only { display:none !important; }
   #bottom-nav, #fab, #drawer-backdrop, #mobile-topbar { display:none; }
@@ -528,6 +548,8 @@
     .detail-actions select { flex:1 1 100%; }
     .episode-row { padding:11px 12px; gap:10px; flex-wrap:wrap; }
     .ep-check { width:22px; height:22px; }
+    .season-header .avail-chip { max-width:120px; }
+    .buy-actions .avail-chip { padding:6px 11px; font-size:11px; }
     .ep-title { min-width:0; }
     .season-header { padding:12px !important; }
 
@@ -619,6 +641,9 @@
       </div>
       <div class="nav-item" data-view="calendar" onclick="switchView('calendar')">
         <span>📅</span> Calendar
+      </div>
+      <div class="nav-item" data-view="buy" onclick="switchView('buy')">
+        <span>🛒</span> To Buy <span class="count" id="count-buy">0</span>
       </div>
       <div class="nav-section">Discover</div>
       <div class="nav-item" data-view="discover-tv" onclick="switchView('discover-tv')">
@@ -772,6 +797,37 @@
       <div id="cal-body"></div>
     </div>
 
+    <!-- To Buy view -->
+    <div id="buy-view" class="hidden">
+      <div class="page-header">
+        <div class="page-title">To Buy</div>
+        <div class="page-sub" id="buy-sub"></div>
+      </div>
+      <div class="cal-filters">
+        <div class="cal-modes">
+          <div class="type-pill" id="buy-tab-need" onclick="setBuyTab('need')">🛒 Need to buy · <span id="buy-n-need">0</span></div>
+          <div class="type-pill" id="buy-tab-owned" onclick="setBuyTab('owned')">💾 Owned · <span id="buy-n-owned">0</span></div>
+        </div>
+      </div>
+      <div class="cal-filters">
+        <div class="type-pill" data-buy-type="tv" onclick="toggleBuyType('tv')">📺 TV</div>
+        <div class="type-pill" data-buy-type="anime" onclick="toggleBuyType('anime')">⛩ Anime</div>
+        <div class="type-pill" data-buy-type="movie" onclick="toggleBuyType('movie')">🎬 Movies</div>
+      </div>
+      <div class="toolbar">
+        <div class="search-box">
+          <span style="color:var(--muted)">🔍</span>
+          <input type="text" id="buy-search" placeholder="Search titles…" oninput="renderBuyView()">
+        </div>
+      </div>
+      <div class="cal-status">
+        <span id="buy-status-text"></span>
+        <button class="btn btn-ghost btn-sm" id="buy-refresh-btn" onclick="refreshAvailability(true)">↻ Check availability</button>
+      </div>
+      <div id="buy-body"></div>
+      <div class="avail-meta" style="margin-top:24px;">Covers titles you're Watching, Paused or Planning. A season counts as "need to buy" when it has aired, has unwatched episodes, isn't on any service you subscribe to, and you haven't marked it owned. Singapore streaming data from JustWatch via TMDB.</div>
+    </div>
+
     <!-- Discover view (TV / Movies from tracked stars) -->
     <div id="discover-view" class="hidden">
       <div class="page-header">
@@ -896,7 +952,7 @@
       </div>
       <div class="settings-section">
         <div class="settings-section-title">My Streaming Platforms</div>
-        <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Select platforms you subscribe to. TV World will flag which ones carry each series.</p>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Select the services you subscribe to in Singapore. This list comes from TMDB/JustWatch, so names always match; the small number is how many of your titles stream there. Anything not on these is flagged 🛒 Need to buy.</p>
         <div class="platform-grid" id="platform-grid"></div>
         <button class="btn btn-primary btn-sm" onclick="savePlatforms()" style="margin-top:14px;">Save Platforms</button>
       </div>
@@ -1250,10 +1306,6 @@ const CLIENT_ID = '678456232174-ilpocmjaijsjsi4fr1or9r4o0to8vh9h.apps.googleuser
 const DRIVE_FILENAME = 'tvworld-data.json';
 const GITHUB_PAGES_URL = window.location.href.split('?')[0];
 
-const PLATFORMS_LIST = [
-  'Netflix','Disney+','Apple TV+','Amazon Prime Video',
-  'MAX','Paramount+','Hulu','YouTube Premium','Crunchyroll'
-];
 
 // ─── State ─────────────────────────────────────────────────────────────────
 let accessToken = null;
@@ -1467,14 +1519,16 @@ function switchView(view) {
   const isSettings = view === 'settings';
   const isDiscover = view.startsWith('discover-');
   const isCalendar = view === 'calendar';
-  document.getElementById('list-view').classList.toggle('hidden', isSettings || isStars || isDiscover || isCalendar);
+  const isBuy = view === 'buy';
+  document.getElementById('list-view').classList.toggle('hidden', isSettings || isStars || isDiscover || isCalendar || isBuy);
+  document.getElementById('buy-view').classList.toggle('hidden', !isBuy);
   document.getElementById('calendar-view').classList.toggle('hidden', !isCalendar);
   document.getElementById('stars-view').classList.toggle('hidden', !isStars);
   document.getElementById('discover-view').classList.toggle('hidden', !isDiscover);
   document.getElementById('detail-view').classList.add('hidden');
   document.getElementById('settings-view').classList.toggle('hidden', !isSettings);
 
-  if (!isSettings && !isStars && !isDiscover && !isCalendar) {
+  if (!isSettings && !isStars && !isDiscover && !isCalendar && !isBuy) {
     const titles = { all:'All Series', watching:'Watching', plan:'Plan to Watch', paused:'Paused', completed:'Completed', dropped:'Dropped' };
     document.getElementById('list-title').textContent = titles[view] || 'All Series';
     document.getElementById('hide-status-row').style.display = view === 'all' ? '' : 'none';
@@ -1486,6 +1540,7 @@ function switchView(view) {
   }
   if (isStars) renderStarsGrid();
   if (isCalendar) openCalendarView();
+  if (isBuy) openBuyView();
   if (isDiscover) {
     lastDiscoverView = view;
     document.getElementById('disc-media-tv').className = 'type-pill' + (view === 'discover-tv' ? ' active-tv' : '');
@@ -1585,6 +1640,7 @@ function renderGrid() {
     const typeIcon = s.type === 'movie' ? '🎬' : s.type === 'anime' ? '⛩' : '📺';
     card.innerHTML = `
       ${s.anilist_id ? '<div class="anilist-badge">AL</div>' : ''}
+      ${buyBadgeHtml(s)}
       ${s.poster_url ? `<img class="series-poster" src="${s.poster_url}" alt="${s.title}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
         <div class="series-poster-placeholder" style="display:none">${typeIcon}</div>`
       : `<div class="series-poster-placeholder">${typeIcon}</div>`}
@@ -1659,6 +1715,7 @@ function openDetail(id) {
   document.getElementById('stars-view').classList.add('hidden');
   document.getElementById('discover-view').classList.add('hidden');
   document.getElementById('calendar-view').classList.add('hidden');
+  document.getElementById('buy-view').classList.add('hidden');
   document.getElementById('detail-view').classList.remove('hidden');
 
   document.getElementById('detail-title').textContent = s.title;
@@ -1719,24 +1776,15 @@ function openDetail(id) {
 
   // Cast
   renderCastStrip(s);
-}
 
-function renderPlatformFlag(s) {
-  const el = document.getElementById('detail-platform');
-  const myPlatforms = data.settings.subscribed_platforms || [];
-  const seriesPlatforms = s.streaming_platforms || [];
-  const matches = seriesPlatforms.filter(p => myPlatforms.includes(p));
-  if (seriesPlatforms.length === 0) { el.innerHTML = ''; return; }
-  if (matches.length > 0) {
-    el.innerHTML = matches.map(p => `<span class="platform-flag">📺 ${p}</span>`).join(' ');
-  } else {
-    el.innerHTML = `<span style="font-size:12px;color:var(--muted)">Not on your platforms</span>`;
-  }
+  // Keep streaming availability fresh for this title (background; updates chips in place)
+  availMaybeRefresh(s);
 }
 
 function renderSeasons(s) {
   const container = document.getElementById('seasons-container');
   container.innerHTML = '';
+  const availI = availInfo(s);
   (s.seasons||[]).forEach((sea, si) => {
     const total = sea.episodes.length;
     const watched = sea.episodes.filter(e=>e.watched).length;
@@ -1746,6 +1794,7 @@ function renderSeasons(s) {
     block.innerHTML = `
       <div class="season-header" onclick="toggleSeason(this)">
         <div class="season-title">Season ${sea.season_number}</div>
+        <span class="season-chip-slot" data-si="${si}">${seasonChipHtml(s, si, availI)}</span>
         <div class="season-progress">${watched}/${total}</div>
         <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();bulkMarkSeason('${s.id}',${si},${!allW})" style="padding:3px 9px;font-size:11px;">${allW?'Unmark all':'Mark all watched'}</button>
         <div class="season-chevron">▼</div>
@@ -1912,6 +1961,8 @@ function updateCounts() {
   // Stars count = unique cast members across library
   const allCast = new Set(data.series.flatMap(s => (s.cast||[]).map(c => c.id)));
   document.getElementById('count-stars').textContent = allCast.size;
+  const buyEl = document.getElementById('count-buy');
+  if (buyEl) buyEl.textContent = data.series.filter(s => availNeed(availInfo(s)).length).length;
 }
 
 // ─── Add/Edit Modal ───────────────────────────────────────────────────────
@@ -2352,8 +2403,9 @@ async function fetchProviders(seriesId, tmdbId) {
     ]);
     const provJson = await provRes.json();
     const castJson = await castRes.json();
-    const sg = provJson.results?.SG;
-    const all = [...(sg?.flatrate||[]), ...(sg?.ads||[]), ...(sg?.buy||[]), ...(sg?.free||[])].map(p => p.provider_name);
+    const prevSeasonsAt = s.avail?.seasonsAt;
+    s.avail = { at: Date.now(), ...availFromResult(provJson.results?.[AVAIL_REGION]) };
+    if (prevSeasonsAt) s.avail.seasonsAt = prevSeasonsAt;
     let cast;
     if (isMovie) {
       // /movie/credits returns a flat cast array sorted by order
@@ -2370,9 +2422,9 @@ async function fetchProviders(seriesId, tmdbId) {
           return { id:c.id, name:c.name, character: topRole?.character || c.character || '', profile_path:c.profile_path||null };
         });
     }
-    s.streaming_platforms = [...new Set(all)];
+    s.streaming_platforms = s.avail.s.map(p => p[1]); // streaming only — buy/rent stores live in s.avail.b / s.avail.r
     s.cast = cast;
-    if (currentSeriesId === seriesId) { renderPlatformFlag(s); renderCastStrip(s); }
+    if (currentSeriesId === seriesId) { renderPlatformFlag(s); updateSeasonChips(s); renderCastStrip(s); }
     saveToDrive();
   } catch(e) { console.error('Provider/cast fetch failed:', e); }
 }
@@ -2958,27 +3010,6 @@ function saveTmdbKey() {
   document.getElementById('tmdb-key-status').textContent = data.settings.tmdb_api_key ? '✓ Key saved' : '';
   saveToDrive();
   showToast('TMDB key saved', 'success');
-}
-
-function buildPlatformGrid() {
-  const grid = document.getElementById('platform-grid');
-  if (!grid) return;
-  const selected = data.settings.subscribed_platforms || [];
-  grid.innerHTML = PLATFORMS_LIST.map(p => `
-    <div class="platform-chip ${selected.includes(p)?'selected':''}" data-platform="${p}" onclick="togglePlatform(this)">
-      ${p}
-    </div>`).join('');
-}
-
-function togglePlatform(el) {
-  el.classList.toggle('selected');
-}
-
-function savePlatforms() {
-  const chips = document.querySelectorAll('.platform-chip.selected');
-  data.settings.subscribed_platforms = [...chips].map(c => c.dataset.platform);
-  saveToDrive();
-  showToast('Platforms saved', 'success');
 }
 
 // ─── Rating stars ──────────────────────────────────────────────────────────
@@ -4626,6 +4657,475 @@ async function tmmPick(idx, tmdbId) {
   saveToDrive();
 }
 function tmmSkip(idx) { tmmRemoveRow(idx); }
+
+// ─── Streaming availability (Singapore) + Need to Buy / Owned ─────────────
+// Data (all saved in tvworld-data.json):
+//   s.avail       = { at, seasonsAt?, s: [[id,name]] streaming (flatrate+ads+free), b: buy, r: rent }  — SG only
+//   season.avail  = { at, s: [[id,name]] }   TV (non-anime) only, from /tv/{id}/season/{n}/watch/providers
+//   season.owned  = true                     you bought a digital copy of this season
+//   s.owned       = true                     movies, and shows with no season data
+//   settings.subscribed_provider_ids = [ids] (settings.subscribed_platforms keeps the names)
+// Matching is by TMDB provider ID, falling back to a normalised name ("Disney+" = "Disney Plus").
+const AVAIL_REGION = 'SG';
+const AVAIL_TTL = 3 * 86400000;
+const AVAIL_ACTIVE = ['Watching', 'Plan to Watch', 'Paused'];
+const PROV_ALIAS = { appletvplus: 'appletv', max: 'hbomax' };
+let availRefreshing = false;
+let buyTab = 'need';
+let buyTypes = new Set(['tv', 'anime', 'movie']);
+let provCatalog = null;
+let platformShowAll = false;
+
+function provNorm(name) {
+  let n = String(name || '').toLowerCase().replace(/\+/g, 'plus').replace(/[^a-z0-9]/g, '');
+  for (const suf of ['basicwithads', 'standardwithads', 'withads', 'kids']) {
+    if (n.endsWith(suf) && n.length > suf.length) { n = n.slice(0, -suf.length); break; }
+  }
+  return PROV_ALIAS[n] || n;
+}
+function subscribedMatcher() {
+  const ids = new Set((data.settings.subscribed_provider_ids || []).map(Number));
+  const names = new Set((data.settings.subscribed_platforms || []).map(provNorm));
+  return ([id, name]) => ids.has(Number(id)) || names.has(provNorm(name));
+}
+function availFromResult(r) {
+  const pick = (arr) => {
+    const out = [], seen = new Set();
+    (arr || []).forEach(p => { if (!seen.has(p.provider_id)) { seen.add(p.provider_id); out.push([p.provider_id, p.provider_name]); } });
+    return out;
+  };
+  return { s: pick([...(r?.flatrate || []), ...(r?.ads || []), ...(r?.free || [])]), b: pick(r?.buy), r: pick(r?.rent) };
+}
+const availNeedsSeasons = (s) => (s.type || 'tv') === 'tv' && AVAIL_ACTIVE.includes(s.status) && (s.seasons || []).length > 0;
+function availStale(s) {
+  if (!s.avail) return true;
+  if (Date.now() - s.avail.at > AVAIL_TTL) return true;
+  if (availNeedsSeasons(s) && (!s.avail.seasonsAt || Date.now() - s.avail.seasonsAt > AVAIL_TTL)) return true;
+  return false;
+}
+async function fetchAvailability(s, key, withSeasons) {
+  const isMovie = s.type === 'movie';
+  const j = await discFetchJSON(`https://api.themoviedb.org/3/${isMovie ? 'movie' : 'tv'}/${s.tmdb_id}/watch/providers?api_key=${key}`);
+  const prevSeasonsAt = s.avail?.seasonsAt;
+  s.avail = { at: Date.now(), ...availFromResult(j?.results?.[AVAIL_REGION]) };
+  if (prevSeasonsAt) s.avail.seasonsAt = prevSeasonsAt;
+  s.streaming_platforms = s.avail.s.map(p => p[1]);
+  if (withSeasons && (s.type || 'tv') === 'tv') {
+    for (const sea of (s.seasons || [])) {
+      if (!sea.season_number) continue;
+      const sj = await discFetchJSON(`https://api.themoviedb.org/3/tv/${s.tmdb_id}/season/${sea.season_number}/watch/providers?api_key=${key}`);
+      sea.avail = { at: Date.now(), s: availFromResult(sj?.results?.[AVAIL_REGION]).s };
+    }
+    s.avail.seasonsAt = Date.now();
+  }
+}
+
+// ── Status per season / title ──
+const availToday = () => new Date().toISOString().slice(0, 10);
+const seasonAired = (se) => (se.episodes || []).some(e => !e.air_date || e.air_date <= availToday());
+const seasonWanted = (se) => (se.episodes || []).some(e => !e.watched && (!e.air_date || e.air_date <= availToday()));
+// st: 'owned' | 'stream' | 'buy' | 'upcoming' | 'unknown'
+function availInfo(s) {
+  const match = subscribedMatcher();
+  const type = s.type || 'tv';
+  const checked = !!s.avail;
+  const titleStream = (s.avail?.s || []).filter(match);
+  const info = {
+    type, checked, active: AVAIL_ACTIVE.includes(s.status),
+    titleStream, otherStream: (s.avail?.s || []).filter(p => !match(p)),
+    buyAt: s.avail?.b || [], rentAt: s.avail?.r || [],
+    seasons: [], whole: null,
+  };
+  const seasons = (s.seasons || []).map((se, si) => ({ se, si })).filter(x => (x.se.episodes || []).length);
+  if (type === 'movie' || !seasons.length) {
+    // Movies, and shows with no season data yet: one status for the whole title
+    info.whole = s.owned ? 'owned' : titleStream.length ? 'stream' : checked ? 'buy' : 'unknown';
+    return info;
+  }
+  // Per-season data is only trusted once TMDB has returned some for this show; otherwise use the title-level list
+  const useSeasonData = type === 'tv' && seasons.some(x => x.se.avail?.s?.length);
+  seasons.forEach(({ se, si }) => {
+    const stream = useSeasonData ? (se.avail?.s || []).filter(match) : titleStream;
+    const st = se.owned ? 'owned'
+      : stream.length ? 'stream'
+      : !checked ? 'unknown'
+      : !seasonAired(se) ? 'upcoming'
+      : 'buy';
+    info.seasons.push({ n: se.season_number, si, st, stream, wanted: seasonWanted(se) });
+  });
+  return info;
+}
+function availNeed(info) {
+  if (!info.active) return [];
+  if (info.whole) return info.whole === 'buy' ? ['whole'] : [];
+  return info.seasons.filter(x => x.st === 'buy' && x.wanted);
+}
+function availOwned(s, info) {
+  if (info.whole) return s.owned ? ['whole'] : [];
+  return info.seasons.filter(x => x.st === 'owned');
+}
+function fmtSeasonRange(nums) {
+  const n = [...nums].sort((a, b) => a - b);
+  const out = [];
+  for (let i = 0; i < n.length; i++) {
+    let j = i;
+    while (j + 1 < n.length && n[j + 1] === n[j] + 1) j++;
+    out.push(j > i ? `S${n[i]}–${n[j]}` : `S${n[i]}`);
+    i = j;
+  }
+  return out.join(', ');
+}
+const provNames = (list) => [...new Set(list.map(p => p[1]))].join(', ');
+
+// ── Library card badge ──
+function buyBadgeHtml(s) {
+  const info = availInfo(s);
+  const need = availNeed(info);
+  if (need.length) {
+    const label = need[0] === 'whole' ? 'Buy' : `Buy ${fmtSeasonRange(need.map(x => x.n))}`;
+    return `<div class="buy-badge" title="Not on your streamers">🛒 ${discEsc(label)}</div>`;
+  }
+  if (availOwned(s, info).length) return '<div class="buy-badge owned" title="You own a digital copy">💾 Owned</div>';
+  return '';
+}
+
+// ── Detail view ──
+function renderPlatformFlag(s) {
+  const el = document.getElementById('detail-platform');
+  if (!el) return;
+  const info = availInfo(s);
+  if (!s.tmdb_id && !s.owned && !(s.seasons || []).some(se => se.owned)) { el.innerHTML = ''; return; }
+  const parts = [];
+  // Your services: title-level list plus anything the per-season data adds
+  const mine = new Map(info.titleStream.map(p => [p[0], p]));
+  info.seasons.forEach(x => x.stream.forEach(p => mine.set(p[0], p)));
+  if (info.checked) {
+    if (mine.size) parts.push([...mine.values()].map(p => `<span class="platform-flag">📺 ${discEsc(p[1])}</span>`).join(' '));
+    else parts.push(`<span class="avail-note">Not on your streamers in Singapore</span>`);
+    if (info.otherStream.length) parts.push(`<span class="avail-note">Also streaming on ${discEsc(provNames(info.otherStream))}</span>`);
+  } else if (s.tmdb_id) {
+    parts.push(`<span class="avail-note">Availability not checked yet…</span>`);
+  }
+  const need = availNeed(info), owned = availOwned(s, info);
+  const lines = [];
+  if (info.whole) {
+    const st = info.whole;
+    const btn = st === 'owned'
+      ? `<button class="avail-chip owned" onclick="toggleTitleOwned('${s.id}')" title="Tap to unmark">💾 Owned</button>`
+      : `<button class="avail-chip ${st === 'buy' && info.active ? 'buy' : 'muted'}" onclick="toggleTitleOwned('${s.id}')">${st === 'buy' && info.active ? '🛒 Need to buy · ' : ''}Mark owned</button>`;
+    lines.push(btn);
+  } else {
+    if (need.length) lines.push(`<span class="avail-chip buy static">🛒 Need to buy: ${fmtSeasonRange(need.map(x => x.n))}</span>`);
+    if (owned.length) lines.push(`<span class="avail-chip owned static">💾 Owned: ${fmtSeasonRange(owned.map(x => x.n))}</span>`);
+  }
+  const where = [];
+  if (info.buyAt.length) where.push(`Buy: ${discEsc(provNames(info.buyAt))}`);
+  if (info.rentAt.length) where.push(`Rent: ${discEsc(provNames(info.rentAt))}`);
+  if (info.checked && !where.length && !info.titleStream.length) where.push('No digital purchase listed in Singapore');
+  const ago = s.avail ? availAgo(s.avail.at) : '';
+  el.innerHTML = `<div class="avail-box">
+    <div class="avail-row">${parts.join(' ')}</div>
+    ${lines.length ? `<div class="avail-row">${lines.join(' ')}</div>` : ''}
+    ${where.length ? `<div class="avail-meta">${where.join(' · ')}</div>` : ''}
+    ${s.tmdb_id ? `<div class="avail-meta">${ago ? `Checked ${ago} · ` : ''}Singapore data from JustWatch via TMDB · <a href="#" onclick="event.preventDefault();checkAvailabilityOne('${s.id}')">↻ Check now</a></div>` : ''}
+  </div>`;
+}
+function availAgo(t) {
+  const m = Math.round((Date.now() - t) / 60000);
+  if (m < 2) return 'just now';
+  if (m < 60) return `${m} min ago`;
+  const h = Math.round(m / 60);
+  if (h < 48) return `${h}h ago`;
+  return `${Math.round(h / 24)} days ago`;
+}
+function seasonChipHtml(s, si, info) {
+  const x = info.seasons.find(y => y.si === si);
+  if (!x) return '';
+  const click = `event.stopPropagation();toggleSeasonOwned('${s.id}',${si})`;
+  if (x.st === 'owned') return `<button class="avail-chip owned" onclick="${click}" title="You own this season — tap to unmark">💾 Owned</button>`;
+  if (x.st === 'stream') return `<button class="avail-chip stream" onclick="${click}" title="Tap to mark as owned">📺 ${discEsc(provNames(x.stream))}</button>`;
+  if (x.st === 'buy' && x.wanted && info.active) return `<button class="avail-chip buy" onclick="${click}" title="Not on your streamers — tap once you've bought it">🛒 Need to buy</button>`;
+  if (x.st === 'buy') return `<button class="avail-chip muted" onclick="${click}" title="Not on your streamers — tap to mark as owned">Not streaming</button>`;
+  return '';
+}
+function updateSeasonChips(s) {
+  const info = availInfo(s);
+  document.querySelectorAll('#seasons-container .season-chip-slot').forEach(el => {
+    el.innerHTML = seasonChipHtml(s, Number(el.dataset.si), info);
+  });
+}
+function refreshAvailUI(s) {
+  updateCounts();
+  if (s && currentSeriesId === s.id) { renderPlatformFlag(s); updateSeasonChips(s); }
+  if (currentView === 'buy' && !currentSeriesId) renderBuyView(true);
+}
+function toggleSeasonOwned(sid, si) {
+  const s = data.series.find(x => x.id === sid);
+  const se = s?.seasons?.[si];
+  if (!se) return;
+  if (se.owned) delete se.owned; else se.owned = true;
+  saveToDrive();
+  refreshAvailUI(s);
+  showToast(se.owned ? `${s.title} S${se.season_number} marked owned 💾` : `${s.title} S${se.season_number} unmarked`, 'success');
+}
+function toggleTitleOwned(sid) {
+  const s = data.series.find(x => x.id === sid);
+  if (!s) return;
+  if (s.owned) delete s.owned; else s.owned = true;
+  saveToDrive();
+  refreshAvailUI(s);
+  showToast(s.owned ? `${s.title} marked owned 💾` : `${s.title} unmarked`, 'success');
+}
+function markSeasonsOwned(sid, sis) {
+  const s = data.series.find(x => x.id === sid);
+  if (!s) return;
+  sis.forEach(si => { if (s.seasons?.[si]) s.seasons[si].owned = true; });
+  saveToDrive();
+  refreshAvailUI(s);
+  showToast(`${s.title}: ${sis.length} season${sis.length !== 1 ? 's' : ''} marked owned 💾`, 'success');
+}
+async function availMaybeRefresh(s) {
+  const key = data.settings.tmdb_api_key;
+  if (!key || !s.tmdb_id || !availStale(s)) return;
+  try {
+    await fetchAvailability(s, key, availNeedsSeasons(s));
+    saveToDrive();
+    refreshAvailUI(s);
+  } catch (e) { console.error('Availability check failed', e); }
+}
+async function checkAvailabilityOne(sid) {
+  const s = data.series.find(x => x.id === sid);
+  const key = data.settings.tmdb_api_key;
+  if (!s || !s.tmdb_id) return;
+  if (!key) { showToast('Add your TMDB API key in Settings', 'error'); return; }
+  showToast('Checking availability…');
+  try {
+    await fetchAvailability(s, key, (s.type || 'tv') === 'tv');
+    saveToDrive();
+    refreshAvailUI(s);
+    showToast('Availability updated', 'success');
+  } catch (e) { showToast(`Check failed — ${e.message}`, 'error'); }
+}
+
+// ── Bulk refresh (To Buy page) ──
+async function refreshAvailability(force) {
+  if (availRefreshing) return;
+  const key = data.settings.tmdb_api_key;
+  if (!key) { buySetStatus('Add your TMDB API key in Settings to check availability.'); return; }
+  const targets = data.series.filter(s => s.tmdb_id && AVAIL_ACTIVE.includes(s.status) && (force || availStale(s)));
+  if (!targets.length) { buySetStatus(); if (force) showToast('Availability is up to date', 'success'); return; }
+  availRefreshing = true;
+  const btn = document.getElementById('buy-refresh-btn');
+  if (btn) btn.disabled = true;
+  let i = 0, done = 0, failed = 0;
+  const lane = async () => {
+    while (i < targets.length) {
+      const s = targets[i++];
+      try { await fetchAvailability(s, key, availNeedsSeasons(s)); }
+      catch (e) {
+        failed++;
+        if (e.fatal) { i = targets.length; showToast('TMDB key rejected — check Settings', 'error'); }
+      }
+      done++;
+      if (done % 10 === 0 || done === targets.length) buySetStatus(`Checking availability… ${done}/${targets.length}`);
+      if (done % 40 === 0 && currentView === 'buy' && !currentSeriesId) renderBuyView(true);
+    }
+  };
+  await Promise.all(Array.from({ length: 5 }, lane));
+  availRefreshing = false;
+  if (btn) btn.disabled = false;
+  saveToDrive();
+  updateCounts();
+  buySetStatus(failed ? `${failed} title${failed !== 1 ? 's' : ''} couldn't be checked.` : null);
+  if (currentView === 'buy' && !currentSeriesId) renderBuyView(true);
+}
+
+// ── To Buy view ──
+function buySetStatus(text) {
+  const el = document.getElementById('buy-status-text');
+  if (!el) return;
+  if (text) { el.textContent = text; return; }
+  const active = data.series.filter(s => AVAIL_ACTIVE.includes(s.status));
+  const unchecked = active.filter(s => s.tmdb_id && !s.avail).length;
+  const noId = active.filter(s => !s.tmdb_id).length;
+  const latest = Math.max(0, ...active.map(s => s.avail?.at || 0));
+  const bits = [];
+  if (latest) bits.push(`Checked ${availAgo(latest)}`);
+  if (unchecked) bits.push(`${unchecked} not checked yet`);
+  if (noId) bits.push(`${noId} without a TMDB ID can't be checked`);
+  el.textContent = bits.join(' · ') || 'Not checked yet';
+}
+function openBuyView() {
+  syncBuyControls();
+  buySetStatus();
+  renderBuyView();
+  if (data.series.some(s => s.tmdb_id && AVAIL_ACTIVE.includes(s.status) && availStale(s))) refreshAvailability(false);
+}
+function syncBuyControls() {
+  document.getElementById('buy-tab-need').classList.toggle('on', buyTab === 'need');
+  document.getElementById('buy-tab-owned').classList.toggle('on', buyTab === 'owned');
+  document.querySelectorAll('[data-buy-type]').forEach(el => {
+    const t = el.dataset.buyType;
+    el.className = 'type-pill' + (buyTypes.has(t) ? ` active-${t}` : '');
+  });
+}
+function setBuyTab(tab) { buyTab = tab; syncBuyControls(); renderBuyView(); document.getElementById('main').scrollTop = 0; }
+function toggleBuyType(type) {
+  if (buyTypes.has(type) && buyTypes.size === 1) return;
+  if (buyTypes.has(type)) buyTypes.delete(type); else buyTypes.add(type);
+  syncBuyControls();
+  renderBuyView();
+}
+function buyCollect() {
+  const need = [], owned = [];
+  for (const s of data.series) {
+    const info = availInfo(s);
+    const n = availNeed(info), o = availOwned(s, info);
+    if (n.length) need.push({ s, info, need: n });
+    if (o.length) owned.push({ s, info, owned: o });
+  }
+  return { need, owned };
+}
+function renderBuyView(keepScroll) {
+  const main = document.getElementById('main');
+  const scroll = main.scrollTop;
+  const { need, owned } = buyCollect();
+  document.getElementById('buy-n-need').textContent = need.length;
+  document.getElementById('buy-n-owned').textContent = owned.length;
+  const needSeasons = need.reduce((a, x) => a + (x.need[0] === 'whole' ? 1 : x.need.length), 0);
+  document.getElementById('buy-sub').textContent = need.length
+    ? `${need.length} title${need.length !== 1 ? 's' : ''} (${needSeasons} season${needSeasons !== 1 ? 's' : ''} or movies) you'd need to buy to watch now`
+    : 'Everything you\'re watching or planning is on your streamers or already owned';
+  const q = document.getElementById('buy-search').value.trim().toLowerCase();
+  const list = (buyTab === 'need' ? need : owned).filter(x => buyTypes.has(x.s.type || 'tv') && (!q || x.s.title.toLowerCase().includes(q)));
+  const body = document.getElementById('buy-body');
+  if (!list.length) {
+    body.innerHTML = `<div class="cal-empty">${buyTab === 'need'
+      ? (q ? 'No matches.' : 'Nothing to buy right now.')
+      : (q ? 'No matches.' : 'Nothing marked as owned yet. Tap 🛒 Need to buy on a season or movie once you\'ve bought it.')}</div>`;
+    if (keepScroll) main.scrollTop = scroll;
+    return;
+  }
+  let html = '';
+  if (buyTab === 'need') {
+    const order = ['Watching', 'Paused', 'Plan to Watch'];
+    for (const status of order) {
+      const group = list.filter(x => x.s.status === status).sort((a, b) => a.s.title.localeCompare(b.s.title));
+      if (!group.length) continue;
+      html += `<div class="cal-week-label">${status} · ${group.length}</div>`;
+      html += group.map(x => buyRowHtml(x, 'need')).join('');
+    }
+  } else {
+    html = list.sort((a, b) => a.s.title.localeCompare(b.s.title)).map(x => buyRowHtml(x, 'owned')).join('');
+  }
+  body.innerHTML = html;
+  if (keepScroll) main.scrollTop = scroll;
+}
+function buyRowHtml(x, mode) {
+  const { s, info } = x;
+  const icon = s.type === 'movie' ? '🎬' : s.type === 'anime' ? '⛩' : '📺';
+  const thumb = s.poster_url ? `<img class="cal-thumb" src="${s.poster_url}" loading="lazy" alt="">` : `<div class="cal-thumb-ph">${icon}</div>`;
+  const lines = [], actions = [];
+  if (mode === 'need') {
+    if (x.need[0] === 'whole') {
+      lines.push(s.type === 'movie' ? 'Not on your streamers' : 'Not on your streamers (no season data — ↻ TMDB on the show to add seasons)');
+      actions.push(`<button class="avail-chip buy" onclick="toggleTitleOwned('${s.id}')">💾 Mark owned</button>`);
+    } else {
+      lines.push(`🛒 Need ${fmtSeasonRange(x.need.map(y => y.n))}`);
+      x.need.forEach(y => actions.push(`<button class="avail-chip buy" onclick="toggleSeasonOwned('${s.id}',${y.si})" title="Mark as owned">S${y.n} · Mark owned</button>`));
+      if (x.need.length > 1) actions.push(`<button class="avail-chip muted" onclick="markSeasonsOwned('${s.id}',[${x.need.map(y => y.si).join(',')}])">Mark all owned</button>`);
+    }
+    // Where the other seasons are
+    const byStreamer = new Map();
+    info.seasons.filter(y => y.st === 'stream').forEach(y => {
+      const k = provNames(y.stream);
+      if (!byStreamer.has(k)) byStreamer.set(k, []);
+      byStreamer.get(k).push(y.n);
+    });
+    const streamBits = [...byStreamer].map(([k, ns]) => `${fmtSeasonRange(ns)} on ${k}`);
+    const ownedNs = info.seasons.filter(y => y.st === 'owned').map(y => y.n);
+    if (ownedNs.length) streamBits.push(`${fmtSeasonRange(ownedNs)} owned`);
+    if (streamBits.length) lines.push(`📺 ${streamBits.join(' · ')}`);
+    const where = info.buyAt.length ? `Buy: ${provNames(info.buyAt)}` : info.rentAt.length ? `Rent only: ${provNames(info.rentAt)}` : 'No digital purchase listed in Singapore';
+    lines.push(where + (info.otherStream.length ? ` · Streaming on ${provNames(info.otherStream)}` : ''));
+  } else {
+    if (x.owned[0] === 'whole') {
+      lines.push('💾 Owned');
+      actions.push(`<button class="avail-chip owned" onclick="toggleTitleOwned('${s.id}')" title="Unmark">💾 Owned ✕</button>`);
+    } else {
+      lines.push(`💾 Owned ${fmtSeasonRange(x.owned.map(y => y.n))}`);
+      x.owned.forEach(y => actions.push(`<button class="avail-chip owned" onclick="toggleSeasonOwned('${s.id}',${y.si})" title="Unmark">S${y.n} ✕</button>`));
+    }
+  }
+  return `<div class="buy-row">
+    <div onclick="openDetail('${s.id}')" style="cursor:pointer;">${thumb}</div>
+    <div class="buy-main">
+      <div class="buy-title" onclick="openDetail('${s.id}')">${discEsc(s.title)} <span class="status-badge ${calBadge(s.status)}">${discEsc(s.status)}</span></div>
+      ${lines.map(l => `<div class="cal-item-sub" style="white-space:normal;">${discEsc(l)}</div>`).join('')}
+      <div class="buy-actions">${actions.join('')}</div>
+    </div>
+  </div>`;
+}
+
+// ── Settings: streaming platforms from TMDB's Singapore list ──
+async function loadProviderCatalog() {
+  if (provCatalog) return provCatalog;
+  try {
+    const c = JSON.parse(localStorage.getItem('tvworld-prov-sg') || 'null');
+    if (c && Date.now() - c.at < 7 * 86400000) return (provCatalog = c.list);
+  } catch (e) {}
+  const key = data.settings.tmdb_api_key;
+  if (!key) return null;
+  try {
+    const [tv, mv] = await Promise.all(['tv', 'movie'].map(m => discFetchJSON(`https://api.themoviedb.org/3/watch/providers/${m}?api_key=${key}&watch_region=${AVAIL_REGION}`)));
+    const map = new Map();
+    [...(tv?.results || []), ...(mv?.results || [])].forEach(p => {
+      if (!map.has(p.provider_id)) map.set(p.provider_id, { id: p.provider_id, name: p.provider_name, pri: p.display_priorities?.[AVAIL_REGION] ?? p.display_priority ?? 999 });
+    });
+    const list = [...map.values()].sort((a, b) => a.pri - b.pri);
+    try { localStorage.setItem('tvworld-prov-sg', JSON.stringify({ at: Date.now(), list })); } catch (e) {}
+    return (provCatalog = list);
+  } catch (e) { console.error('Provider list failed', e); return null; }
+}
+function buildPlatformGrid() {
+  const grid = document.getElementById('platform-grid');
+  if (!grid) return;
+  const match = subscribedMatcher();
+  // How many library titles stream on each service (by normalised name, so old name-only data counts too)
+  const libCount = new Map();
+  data.series.forEach(s => {
+    const names = s.avail ? s.avail.s.map(p => p[1]) : (s.streaming_platforms || []);
+    new Set(names.map(provNorm)).forEach(k => libCount.set(k, (libCount.get(k) || 0) + 1));
+  });
+  let items;
+  if (provCatalog) {
+    items = provCatalog.map(p => ({ ...p, sel: match([p.id, p.name]), n: libCount.get(provNorm(p.name)) || 0 }));
+    // Saved names TMDB no longer lists for SG (e.g. renamed services) still show, so they can be removed
+    (data.settings.subscribed_platforms || []).forEach(name => {
+      if (!items.some(it => provNorm(it.name) === provNorm(name))) items.push({ id: null, name, pri: 9999, sel: true, n: 0, gone: true });
+    });
+    items.sort((a, b) => (b.sel - a.sel) || (b.n - a.n) || (a.pri - b.pri));
+  } else {
+    items = (data.settings.subscribed_platforms || []).map(name => ({ id: null, name, sel: true, n: 0 }));
+    loadProviderCatalog().then(list => { if (list) buildPlatformGrid(); });
+  }
+  const shown = platformShowAll ? items : items.filter((it, i) => it.sel || it.n > 0 || i < 16);
+  grid.innerHTML = shown.map(it => `
+    <div class="platform-chip ${it.sel ? 'selected' : ''}" data-platform="${discEsc(it.name)}" data-pid="${it.id ?? ''}" onclick="togglePlatform(this)" title="${it.gone ? 'No longer listed by TMDB for Singapore' : it.n ? `${it.n} of your titles stream here` : ''}">
+      ${discEsc(it.name)}${it.n ? ` <span style="opacity:0.55;font-size:10px;">${it.n}</span>` : ''}${it.gone ? ' <span style="opacity:0.55;font-size:10px;">(not listed)</span>' : ''}
+    </div>`).join('')
+    + (provCatalog && shown.length < items.length ? `<div class="platform-chip" style="border-style:dashed;" onclick="platformShowAll=true;buildPlatformGrid()">Show all ${items.length}…</div>` : '');
+}
+function togglePlatform(el) { el.classList.toggle('selected'); }
+function savePlatforms() {
+  const chips = [...document.querySelectorAll('#platform-grid .platform-chip.selected')].filter(c => c.dataset.platform);
+  data.settings.subscribed_platforms = chips.map(c => c.dataset.platform);
+  data.settings.subscribed_provider_ids = chips.map(c => Number(c.dataset.pid)).filter(Boolean);
+  saveToDrive();
+  updateCounts();
+  if (currentSeriesId) { const s = data.series.find(x => x.id === currentSeriesId); if (s) refreshAvailUI(s); }
+  showToast('Platforms saved', 'success');
+}
 
 // ─── Calendar ──────────────────────────────────────────────────────────────
 // Events come from two places:
