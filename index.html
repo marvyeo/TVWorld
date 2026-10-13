@@ -6,6 +6,11 @@
 <meta name="theme-color" content="#0e0f13">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="TV World">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <title>TV World</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -460,6 +465,12 @@
   /* ── Discover TV/Movies switch (all sizes) ── */
   .disc-media-switch { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
 
+  /* ── Sync / install ── */
+  #reconnect-bar { position:fixed; top:calc(12px + env(safe-area-inset-top)); left:50%; transform:translateX(-50%); z-index:1000; display:flex; align-items:center; gap:12px; background:var(--card); border:1px solid #f87171; border-radius:12px; padding:10px 14px; font-size:13px; box-shadow:0 4px 20px rgba(0,0,0,0.5); max-width:calc(100vw - 32px); }
+  #reconnect-bar.hidden { display:none; }
+  .install-note { font-size:13px; color:var(--muted); line-height:1.5; margin-top:8px; }
+  .install-note b { color:var(--text); font-weight:600; }
+
   /* ── Availability / To Buy ── */
   .avail-box { display:flex; flex-direction:column; gap:7px; }
   .avail-row { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
@@ -594,6 +605,11 @@
   <div class="auth-subtitle">Your personal TV series tracker, connected to Google Drive</div>
   <button id="signin-btn" class="btn btn-primary" style="padding:12px 28px;font-size:15px;" onclick="startSignIn()">Sign in with Google</button>
   <p style="color:var(--muted);font-size:12px;margin-top:8px;">Sign in to load your watchlist</p>
+  <a href="#" onclick="event.preventDefault();startRedirectSignIn()" style="color:var(--muted);font-size:11px;margin-top:18px;text-decoration:underline;">Sign-in window not opening? Try another way</a>
+</div>
+<div id="reconnect-bar" class="hidden">
+  <span id="reconnect-text">Sign-in expired.</span>
+  <button class="btn btn-primary btn-sm" onclick="reconnect()">Reconnect</button>
 </div>
 
 <!-- Toast -->
@@ -972,8 +988,14 @@
         <span style="font-size:12px;color:var(--muted);margin-left:10px;" id="tmdb-import-status"></span>
       </div>
       <div class="settings-section">
+        <div class="settings-section-title">Install on this device</div>
+        <div id="install-body"></div>
+      </div>
+      <div class="settings-section">
         <div class="settings-section-title">Data</div>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Progress syncs through Google Drive. TV World checks for changes from your other devices whenever you come back to it, and merges them before saving.</p>
         <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <button class="btn btn-secondary btn-sm" onclick="syncNow(true)">↻ Sync now</button>
           <button class="btn btn-secondary btn-sm" onclick="forceSave()">💾 Force Save to Drive</button>
           <button class="btn btn-ghost btn-sm" onclick="exportJSON()">⬇ Export JSON</button>
         </div>
@@ -1365,6 +1387,8 @@ function startSignIn() {
 
 // GSI library calls this once it's ready
 window.addEventListener('load', () => {
+  consumeRedirectToken();
+  renderInstallSection();
   // Poll until google.accounts is available (handles async defer timing)
   const init = () => {
     if (typeof google === 'undefined' || !google.accounts) {
@@ -1380,6 +1404,8 @@ window.addEventListener('load', () => {
           return;
         }
         accessToken = tokenResponse.access_token;
+        tokenExpiresAt = Date.now() + (Number(tokenResponse.expires_in) || 3600) * 1000 - 60000;
+        if (appReady) { onTokenRenewed(); return; } // reconnect mid-session: keep what's on screen
         document.getElementById('auth-screen').classList.add('hidden');
         document.getElementById('app').classList.remove('hidden');
         await loadFromDrive();
@@ -1390,90 +1416,356 @@ window.addEventListener('load', () => {
 });
 
 // ─── Drive ─────────────────────────────────────────────────────────────────
+// Multi-device sync. tvworld-data.json on Drive is the shared copy; each device keeps:
+//   driveVersion — Drive's version number of the file as last loaded/saved here
+//   syncBase     — snapshot of that version (settings + one JSON string per series)
+// Before every save the device checks Drive's version. If another device saved in between, it downloads
+// that copy and merges: per title, per field, and per episode `watched` / season `owned`, against syncBase.
+// Whatever changed on only one side wins; if both sides changed the same thing, this device wins.
+// The app also re-checks Drive when it comes back to the foreground, every 5 minutes, and when back online.
+let driveVersion = null;
+let syncBase = null;
+let appReady = false;
+let saveRunning = false;
+let saveQueued = false;
+let unsavedChanges = false;
+let tokenExpiresAt = 0;
+let hiddenAt = 0;
+const DRIVE_API = 'https://www.googleapis.com/drive/v3/files';
+
 function setSyncStatus(state) {
   const dot = document.getElementById('sync-dot');
   const label = document.getElementById('sync-label');
-  dot.className = 'sync-dot' + (state === 'syncing' ? ' syncing' : state === 'error' ? ' error' : '');
-  label.textContent = state === 'syncing' ? 'Saving…' : state === 'error' ? 'Save failed' : 'Synced';
+  dot.className = 'sync-dot' + (state === 'syncing' ? ' syncing' : state === 'error' || state === 'auth' ? ' error' : '');
+  label.textContent = state === 'syncing' ? 'Syncing…' : state === 'error' ? 'Save failed' : state === 'auth' ? 'Not saving — reconnect' : 'Synced';
+}
+
+function normalizeLoaded(d) {
+  d.settings = d.settings || { tmdb_api_key: '', subscribed_platforms: [] };
+  d.settings.followed_stars = d.settings.followed_stars || [];
+  d.series = d.series || [];
+  d.upcoming = d.upcoming || [];
+  // Older JSON-ingested entries were saved without a type; the library already treats them as TV
+  d.series.forEach(s => { if (!s.type) s.type = 'tv'; });
+  return d;
+}
+function snapshotOf(d) {
+  return {
+    settings: JSON.stringify(d.settings || {}),
+    series: new Map((d.series || []).map(s => [s.id, JSON.stringify(s)])),
+  };
+}
+function hasLocalChanges() {
+  if (!syncBase) return false;
+  if (JSON.stringify(data.settings || {}) !== syncBase.settings) return true;
+  if (data.series.length !== syncBase.series.size) return true;
+  return data.series.some(s => syncBase.series.get(s.id) !== JSON.stringify(s));
+}
+
+// ── Three-way merge ──
+const syncEq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+function pick3(b, l, r) {
+  if (syncEq(l, b)) return r;
+  if (syncEq(r, b)) return l;
+  return l;
+}
+function stripSeasonState(seasons) {
+  return (seasons || []).map(se => ({
+    n: se.season_number,
+    e: (se.episodes || []).map(e => { const { watched, ...rest } = e; return rest; }),
+  }));
+}
+function mergeSeasons(b, l, r) {
+  if (syncEq(l, b)) return r;
+  if (syncEq(r, b)) return l;
+  // Both changed: take episode structure from whichever side changed it (e.g. ↻ TMDB added episodes),
+  // then merge watched ticks and owned flags one by one
+  const struct = JSON.parse(JSON.stringify(syncEq(stripSeasonState(l), stripSeasonState(b)) ? r : l));
+  const idx = (arr) => {
+    const w = new Map(), o = new Map();
+    (arr || []).forEach(se => {
+      o.set(se.season_number, !!se.owned);
+      (se.episodes || []).forEach(e => w.set(`${se.season_number}:${e.episode_number}`, !!e.watched));
+    });
+    return { w, o };
+  };
+  const B = idx(b), L = idx(l), R = idx(r);
+  struct.forEach(se => {
+    const owned = pick3(B.o.get(se.season_number), L.o.get(se.season_number), R.o.get(se.season_number));
+    if (owned) se.owned = true; else delete se.owned;
+    (se.episodes || []).forEach(e => {
+      const k = `${se.season_number}:${e.episode_number}`;
+      const bw = B.w.get(k), lw = L.w.get(k), rw = R.w.get(k);
+      e.watched = !!(lw === undefined ? rw : rw === undefined ? lw : pick3(bw, lw, rw));
+    });
+  });
+  return struct;
+}
+function mergeSeries(b, l, r) {
+  if (!b) return l;
+  const sb = JSON.stringify(b), sl = JSON.stringify(l), sr = JSON.stringify(r);
+  if (sl === sb) return r;
+  if (sr === sb) return l;
+  const out = {};
+  new Set([...Object.keys(b), ...Object.keys(l), ...Object.keys(r)]).forEach(k => {
+    const v = k === 'seasons' ? mergeSeasons(b[k], l[k], r[k]) : pick3(b[k], l[k], r[k]);
+    if (v !== undefined) out[k] = v;
+  });
+  return out;
+}
+function mergeData(local, remote, base) {
+  const bs = JSON.parse(base.settings), ls = local.settings || {}, rs = remote.settings || {};
+  const settings = {};
+  new Set([...Object.keys(bs), ...Object.keys(ls), ...Object.keys(rs)]).forEach(k => {
+    const v = pick3(bs[k], ls[k], rs[k]);
+    if (v !== undefined) settings[k] = v;
+  });
+  const localMap = new Map(local.series.map(s => [s.id, s]));
+  const remoteIds = new Set(remote.series.map(s => s.id));
+  const series = [];
+  for (const r of remote.series) {
+    const bj = base.series.get(r.id);
+    const l = localMap.get(r.id);
+    if (!l) {
+      // Not here: either added on the other device (keep), or deleted here (drop unless the other device edited it since)
+      if (bj === undefined || JSON.stringify(r) !== bj) series.push(r);
+      continue;
+    }
+    series.push(mergeSeries(bj ? JSON.parse(bj) : null, l, r));
+  }
+  for (const l of local.series) {
+    if (remoteIds.has(l.id)) continue;
+    const bj = base.series.get(l.id);
+    // Added here (keep), or deleted on the other device (drop unless edited here since)
+    if (bj === undefined || JSON.stringify(l) !== bj) series.push(l);
+  }
+  return { ...local, ...remote, settings, series };
+}
+
+// ── Drive calls ──
+function tokenValid() { return !!accessToken && Date.now() < tokenExpiresAt; }
+async function driveGet(path, asJson = true) {
+  const res = await fetch(`${DRIVE_API}/${path}`, { headers: { Authorization: `Bearer ${accessToken}` } });
+  if (res.status === 401) { const e = new Error('auth'); e.auth = true; throw e; }
+  if (!res.ok) throw new Error(`Drive ${res.status}`);
+  return asJson ? res.json() : res;
+}
+async function fetchRemote() {
+  const [meta, content] = await Promise.all([
+    driveGet(`${driveFileId}?fields=version`),
+    driveGet(`${driveFileId}?alt=media`),
+  ]);
+  return { version: meta.version, remote: normalizeLoaded(content) };
 }
 
 async function loadFromDrive() {
   try {
     setSyncStatus('syncing');
-    const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=name='${DRIVE_FILENAME}'+and+trashed=false&spaces=drive&fields=files(id,name)`, {
-      headers: { Authorization: `Bearer ${accessToken}` }
-    });
-    if (!res.ok) {
-      throw new Error(`Drive list failed: ${res.status}`);
-    }
-    const list = await res.json();
+    const list = await driveGet(`?q=name='${DRIVE_FILENAME}'+and+trashed=false&spaces=drive&fields=files(id,name)`);
     if (list.files && list.files.length > 0) {
       driveFileId = list.files[0].id;
-      const content = await fetch(`https://www.googleapis.com/drive/v3/files/${driveFileId}?alt=media`, {
-        headers: { Authorization: `Bearer ${accessToken}` }
-      });
-      data = await content.json();
-      data.settings = data.settings || { tmdb_api_key: '', subscribed_platforms: [] };
-      data.settings.followed_stars = data.settings.followed_stars || [];
-      data.series = data.series || [];
-      data.upcoming = data.upcoming || [];
-      // Older JSON-ingested entries were saved without a type; the library already treats them as TV
-      data.series.forEach(s => { if (!s.type) s.type = 'tv'; });
+      const { version, remote } = await fetchRemote();
+      data = remote;
+      driveVersion = version;
+      syncBase = snapshotOf(data);
       // One-time status cleanup (after this, applyAutoStatus runs whenever episodes are ticked)
       if (!data.settings.auto_status_v1) {
         const moved = data.series.filter(s => applyAutoStatus(s)).length;
         data.settings.auto_status_v1 = true;
         if (moved) setTimeout(() => { showToast(`Updated status on ${moved} title${moved !== 1 ? 's' : ''} to match watch progress`, 'success'); saveToDrive(); }, 800);
       }
+    } else {
+      syncBase = snapshotOf(data);
     }
     setSyncStatus('ok');
+    appReady = true;
     initUI();
-  } catch(e) {
+  } catch (e) {
     setSyncStatus('error');
-    showToast('Could not load from Drive', 'error');
+    showToast(e.auth ? 'Sign-in expired — please sign in again' : 'Could not load from Drive', 'error');
     initUI();
   }
 }
 
+// Saves are queued: a tick made while a save is running is picked up by one follow-up save
 async function saveToDrive() {
   buildUpcoming();
-  const body = JSON.stringify(data, null, 2);
-  const blob = new Blob([body], { type: 'application/json' });
-  const form = new FormData();
-  const meta = JSON.stringify({ name: DRIVE_FILENAME, mimeType: 'application/json' });
+  unsavedChanges = true;
+  if (!appReady) return;
+  if (saveRunning) { saveQueued = true; return; }
+  saveRunning = true;
+  try {
+    do { saveQueued = false; await saveOnce(); } while (saveQueued);
+  } finally { saveRunning = false; }
+}
 
+async function saveOnce() {
+  if (!tokenValid()) { needReconnect(); return; }
   try {
     setSyncStatus('syncing');
-    let url, method;
     if (driveFileId) {
-      url = `https://www.googleapis.com/upload/drive/v3/files/${driveFileId}?uploadType=multipart`;
-      method = 'PATCH';
-    } else {
-      url = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
-      method = 'POST';
+      const meta = await driveGet(`${driveFileId}?fields=version`);
+      if (meta.version !== driveVersion) {
+        const { version, remote } = await fetchRemote();
+        data = mergeData(data, remote, syncBase);
+        driveVersion = version;
+        syncBase = snapshotOf(remote);
+        rerenderAfterSync();
+        showToast('Merged changes from your other device', 'success');
+      }
     }
-    form.append('metadata', new Blob([meta], { type: 'application/json' }));
-    form.append('file', blob);
-    const res = await fetch(url, {
-      method, headers: { Authorization: `Bearer ${accessToken}` }, body: form
-    });
+    buildUpcoming();
+    const body = JSON.stringify(data, null, 2);
+    const form = new FormData();
+    form.append('metadata', new Blob([JSON.stringify({ name: DRIVE_FILENAME, mimeType: 'application/json' })], { type: 'application/json' }));
+    form.append('file', new Blob([body], { type: 'application/json' }));
+    const url = driveFileId
+      ? `https://www.googleapis.com/upload/drive/v3/files/${driveFileId}?uploadType=multipart&fields=id,version`
+      : 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,version';
+    const res = await fetch(url, { method: driveFileId ? 'PATCH' : 'POST', headers: { Authorization: `Bearer ${accessToken}` }, body: form });
     if (!res.ok) {
       const errJson = await res.json().catch(() => ({}));
+      if (res.status === 401 || errJson?.error?.status === 'UNAUTHENTICATED') { needReconnect(); return; }
       setSyncStatus('error');
-      if (res.status === 401 || errJson?.error?.status === 'UNAUTHENTICATED') {
-        showToast('Session expired — please sign in again to save', 'error');
-      } else {
-        showToast(`Save failed (${res.status})`, 'error');
-      }
+      showToast(`Save failed (${res.status})`, 'error');
       return;
     }
     const saved = await res.json();
     if (!driveFileId) driveFileId = saved.id;
+    driveVersion = saved.version;
+    syncBase = snapshotOf(JSON.parse(body)); // exactly what was uploaded, not edits made during the upload
+    if (!saveQueued) unsavedChanges = false;
     setSyncStatus('ok');
-  } catch(e) {
+  } catch (e) {
+    if (e.auth) { needReconnect(); return; }
     setSyncStatus('error');
     showToast('Save failed — check your connection', 'error');
   }
+}
+
+// Pull the other device's changes (or push ours, which merges) without a full reload
+async function syncNow(manual) {
+  if (!appReady || saveRunning || !driveFileId) return;
+  if (!tokenValid()) { needReconnect(); return; }
+  if (unsavedChanges || hasLocalChanges()) { await saveToDrive(); if (manual) showToast('Synced', 'success'); return; }
+  try {
+    setSyncStatus('syncing');
+    const meta = await driveGet(`${driveFileId}?fields=version`);
+    if (meta.version !== driveVersion) {
+      const { version, remote } = await fetchRemote();
+      if (saveRunning || hasLocalChanges()) { setSyncStatus('ok'); saveToDrive(); return; } // edited while downloading → merge on save
+      data = remote;
+      driveVersion = version;
+      syncBase = snapshotOf(remote);
+      rerenderAfterSync();
+      showToast('Updated with changes from your other device', 'success');
+    } else if (manual) showToast('Already up to date', 'success');
+    setSyncStatus('ok');
+  } catch (e) {
+    if (e.auth) { needReconnect(); return; }
+    setSyncStatus('error');
+  }
+}
+
+// Re-draw whatever is on screen with the new data, keeping the scroll position
+function rerenderAfterSync() {
+  const main = document.getElementById('main');
+  const scroll = main.scrollTop;
+  updateCounts();
+  if (currentSeriesId && !document.getElementById('detail-view').classList.contains('hidden')) {
+    if (data.series.some(s => s.id === currentSeriesId)) openDetail(currentSeriesId);
+    else closeDetail();
+  } else if (currentView === 'buy') renderBuyView(true);
+  else if (currentView === 'calendar') { if (typeof renderCalendar === 'function') renderCalendar(true); }
+  else if (currentView === 'stars') renderStarsGrid();
+  else if (currentView === 'settings') buildPlatformGrid();
+  else if (!currentView.startsWith('discover-')) { renderGrid(); renderContinueStrip(); }
+  requestAnimationFrame(() => { main.scrollTop = scroll; });
+}
+
+// ── Expired sign-in (Google tokens last 1 hour) ──
+function needReconnect() {
+  setSyncStatus('auth');
+  document.getElementById('reconnect-bar').classList.remove('hidden');
+  document.getElementById('reconnect-text').textContent = unsavedChanges
+    ? 'Sign-in expired — your latest changes aren\'t saved yet.'
+    : 'Sign-in expired — reconnect to keep syncing.';
+}
+function reconnect() {
+  if (!tokenClient) { showToast('Still loading — try again in a moment'); return; }
+  tokenClient.requestAccessToken({ prompt: '' });
+}
+function onTokenRenewed() {
+  document.getElementById('reconnect-bar').classList.add('hidden');
+  setSyncStatus('ok');
+  syncNow();
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { hiddenAt = Date.now(); return; }
+  if (appReady && Date.now() - hiddenAt > 15000) syncNow();
+});
+window.addEventListener('online', () => { if (appReady) syncNow(); });
+setInterval(() => { if (appReady && !document.hidden) syncNow(); }, 5 * 60000);
+window.addEventListener('beforeunload', (e) => {
+  if (appReady && (unsavedChanges || saveRunning)) { e.preventDefault(); e.returnValue = ''; }
+});
+
+// ── Install as an app (PWA) ──
+let installPrompt = null;
+const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(e => console.warn('Service worker failed', e)));
+}
+window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installPrompt = e; renderInstallSection(); });
+window.addEventListener('appinstalled', () => { installPrompt = null; renderInstallSection(); showToast('TV World installed', 'success'); });
+function renderInstallSection() {
+  const el = document.getElementById('install-body');
+  if (!el) return;
+  const ua = navigator.userAgent;
+  const ios = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (isStandalone()) {
+    el.innerHTML = '<p class="install-note">✓ You\'re using the installed app. Your progress syncs through Google Drive on every device you sign in on.</p>';
+  } else if (installPrompt) {
+    el.innerHTML = '<button class="btn btn-primary btn-sm" onclick="doInstall()">📲 Install TV World</button><p class="install-note">Adds TV World to this device with its own icon and window.</p>';
+  } else if (ios) {
+    el.innerHTML = '<p class="install-note">In <b>Safari</b>, tap the <b>Share</b> button, then <b>Add to Home Screen</b>.</p>';
+  } else if (/Android/.test(ua)) {
+    el.innerHTML = '<p class="install-note">In <b>Chrome</b>, open the <b>⋮</b> menu and tap <b>Install app</b> (or <b>Add to Home screen</b>).</p>';
+  } else {
+    el.innerHTML = '<p class="install-note">In <b>Chrome</b> or <b>Edge</b>, click the install icon at the right of the address bar (or ⋮ → Cast, save and share → Install).</p>';
+  }
+}
+async function doInstall() {
+  if (!installPrompt) return;
+  installPrompt.prompt();
+  await installPrompt.userChoice.catch(() => {});
+  installPrompt = null;
+  renderInstallSection();
+}
+
+// ── Redirect sign-in (fallback for when the Google pop-up doesn't work, e.g. some iPhone home-screen apps) ──
+// Needs this page's address added under "Authorized redirect URIs" on the OAuth client in Google Cloud.
+const REDIRECT_URI = location.origin + location.pathname;
+function startRedirectSignIn() {
+  const p = new URLSearchParams({
+    client_id: CLIENT_ID, redirect_uri: REDIRECT_URI, response_type: 'token',
+    scope: 'https://www.googleapis.com/auth/drive.file', include_granted_scopes: 'true',
+    prompt: 'select_account', state: 'tvworld',
+  });
+  location.href = 'https://accounts.google.com/o/oauth2/v2/auth?' + p.toString();
+}
+function consumeRedirectToken() {
+  if (!location.hash.includes('access_token=')) return false;
+  const h = new URLSearchParams(location.hash.slice(1));
+  history.replaceState(null, '', REDIRECT_URI);
+  if (h.get('state') !== 'tvworld' || !h.get('access_token')) return false;
+  accessToken = h.get('access_token');
+  tokenExpiresAt = Date.now() + (Number(h.get('expires_in')) || 3600) * 1000 - 60000;
+  document.getElementById('auth-screen').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+  loadFromDrive();
+  return true;
 }
 
 // ─── Upcoming builder ──────────────────────────────────────────────────────
@@ -3057,7 +3349,11 @@ function showToast(msg, type) {
   setTimeout(() => t.classList.remove('show'), 3000);
 }
 
-function forceSave() { saveToDrive(); showToast('Saved to Drive', 'success'); }
+async function forceSave() {
+  if (!appReady) { showToast('Not loaded from Drive yet', 'error'); return; }
+  await saveToDrive();
+  if (!unsavedChanges) showToast('Saved to Drive', 'success');
+}
 
 function exportJSON() {
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
