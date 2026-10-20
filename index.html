@@ -956,6 +956,11 @@
           <span style="font-size:12px;color:var(--muted);margin-left:10px;" id="cast-resync-status"></span>
         </div>
         <div style="margin-top:10px;">
+          <button class="btn btn-secondary btn-sm" onclick="bulkRefreshTMDB()" id="tmdb-bulk-btn">↻ Refresh All from TMDB</button>
+          <span style="font-size:12px;color:var(--muted);margin-left:10px;" id="tmdb-bulk-status"></span>
+          <div style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.5;">Re-pulls every title you haven't dropped: new seasons and episodes, moved air dates, and movie release dates (SG cinema first, plus digital). Your watched ticks are kept. <span id="tmdb-bulk-last"></span></div>
+        </div>
+        <div style="margin-top:10px;">
           <button class="btn btn-secondary btn-sm" onclick="detectOriginsAll()" id="origin-detect-btn">🌏 Detect origins</button>
           <span style="font-size:12px;color:var(--muted);margin-left:10px;" id="origin-detect-status"></span>
           <div style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.5;">Records the country and language of each TV show and movie so Discover can tell Japanese live-action (J-Drama) from everything else. New titles are picked up automatically; the Discover scan also runs this.</div>
@@ -1773,6 +1778,19 @@ function buildUpcoming() {
   const today = new Date().toISOString().split('T')[0];
   const upcoming = [];
   for (const s of data.series) {
+    if (s.type === 'movie') {
+      // Unreleased movies you haven't dropped or finished (dates come from ↻ TMDB / Refresh All)
+      if (s.status === 'Completed' || s.status === 'Dropped') continue;
+      if (s.release_date && s.release_date > today) {
+        upcoming.push({ label: `${s.title} — ${s.release_date_sg ? 'in SG cinemas' : 'release'} ${s.release_date}`, date: s.release_date,
+          type: 'release', app: 'tvworld', priority: 'normal', url: GITHUB_PAGES_URL });
+      }
+      if (s.digital_release_date && s.digital_release_date > today && s.digital_release_date !== s.release_date) {
+        upcoming.push({ label: `${s.title} — digital release ${s.digital_release_date}`, date: s.digital_release_date,
+          type: 'release', app: 'tvworld', priority: 'normal', url: GITHUB_PAGES_URL });
+      }
+      continue;
+    }
     if (s.status !== 'Watching') continue;
     const next = nextUnwatchedEpisode(s);
     if (!next || !next.air_date) continue;
@@ -1787,6 +1805,11 @@ function buildUpcoming() {
       });
     }
   }
+  try {
+    const due = tmdbBulkDueDate();
+    upcoming.push({ label: 'TV World — monthly Refresh All from TMDB', date: due, type: 'due-date', app: 'tvworld',
+      priority: due <= today ? 'high' : 'normal', url: GITHUB_PAGES_URL });
+  } catch (e) {}
   upcoming.sort((a,b) => a.date.localeCompare(b.date));
   data.upcoming = upcoming;
 }
@@ -1799,6 +1822,7 @@ function initUI() {
   updateCounts();
   renderGrid();
   switchView('all');
+  try { maybeShowTmdbBulkBanner(); } catch (e) { console.error(e); }
 }
 
 // ─── Views ─────────────────────────────────────────────────────────────────
@@ -2561,6 +2585,124 @@ async function selectTMDB(tmdbId, mediaType) {
   }
 }
 
+// Refreshes one library entry from TMDB in place (no save, no UI). Used by ↻ TMDB and by
+// ↻ Refresh All from TMDB. Returns { newEpisodes, dateChanges }.
+async function tmdbRefreshOne(s, key) {
+  const stats = { newEpisodes: 0, dateChanges: 0 };
+  // Movies: refresh metadata only — no seasons/episodes
+  if (s.type === 'movie') {
+    const res = await fetch(`https://api.themoviedb.org/3/movie/${s.tmdb_id}?api_key=${key}`);
+    if (!res.ok) throw new Error(`TMDB movie fetch failed: ${res.status}`);
+    const m = await res.json();
+    s.title = m.title || s.title;
+    s.synopsis = m.overview || s.synopsis;
+    s.poster_url = m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : s.poster_url;
+    s.genres = (m.genres||[]).map(g=>g.name).length ? (m.genres||[]).map(g=>g.name) : s.genres;
+    s.year = (m.release_date||'').split('-')[0] || s.year;
+    Object.assign(s, originFromTmdb(m));
+    // Release dates (SG cinema first, else worldwide; digital SG else US) — feeds upcoming[] for Life Plan
+    try {
+      const rd = await calFetchMovie(s.tmdb_id, key);
+      const before = s.release_date || null;
+      if (rd.theatrical) s.release_date = rd.theatrical;
+      s.release_date_sg = !!rd.theatricalSG;
+      if (rd.digital) s.digital_release_date = rd.digital; else delete s.digital_release_date;
+      if (before && s.release_date && before !== s.release_date) stats.dateChanges++;
+    } catch (e) { console.warn('[tmdbRefreshOne] release dates unavailable', s.title, e); }
+    await fetchProviders(s.id, s.tmdb_id);
+    return stats;
+  }
+
+  const seriesRes = await fetch(`https://api.themoviedb.org/3/tv/${s.tmdb_id}?api_key=${key}`);
+  if (!seriesRes.ok) throw new Error(`TMDB tv fetch failed: ${seriesRes.status}`);
+  const meta = await seriesRes.json();
+  const tmdbSeasonCount = meta.number_of_seasons || 1;
+
+  // Snapshot for the summary (new episodes / moved air dates)
+  const beforeDates = new Map();
+  (s.seasons || []).forEach(se => (se.episodes || []).forEach(e => beforeDates.set(`${se.season_number}:${e.episode_number}`, e.air_date || null)));
+  // Fetch all TMDB seasons
+  const seasonFetches = [];
+  for (let i = 1; i <= Math.min(tmdbSeasonCount, 50); i++) {
+    seasonFetches.push(discFetchJSON(`https://api.themoviedb.org/3/tv/${s.tmdb_id}/season/${i}?api_key=${key}`).then(j => j || {}));
+  }
+  const tmdbSeasonData = await Promise.all(seasonFetches);
+
+  // Update metadata (but preserve title/genres from AniList for anime)
+  if (s.type !== 'anime') s.title = meta.name || s.title;
+  s.synopsis = s.synopsis || meta.overview || '';
+  if (s.type !== 'anime') s.genres = (meta.genres||[]).map(g=>g.name).length ? (meta.genres||[]).map(g=>g.name) : s.genres;
+  s.poster_url = s.poster_url || (meta.poster_path ? `https://image.tmdb.org/t/p/w500${meta.poster_path}` : '');
+  if (s.type !== 'anime') Object.assign(s, originFromTmdb(meta));
+
+  const isAnime = s.type === 'anime';
+  const ourSeasonCount = (s.seasons || []).length;
+
+  if (!isAnime || tmdbSeasonCount >= ourSeasonCount) {
+    // Non-anime or TMDB has enough seasons: merge by season number directly
+    tmdbSeasonData.forEach(sea => {
+      if (!sea.season_number) return;
+      let exSea = (s.seasons||[]).find(x => x.season_number === sea.season_number);
+      if (!exSea) {
+        s.seasons = s.seasons || [];
+        s.seasons.push({ season_number: sea.season_number, episodes: (sea.episodes||[]).map(ep => ({
+          episode_number: ep.episode_number, title: ep.name || `Episode ${ep.episode_number}`,
+          synopsis: ep.overview || null, air_date: ep.air_date || null, watched: false
+        }))});
+      } else {
+        (sea.episodes||[]).forEach(ep => {
+          const exEp = exSea.episodes.find(e => e.episode_number === ep.episode_number);
+          if (!exEp) {
+            exSea.episodes.push({ episode_number: ep.episode_number, title: ep.name || `Episode ${ep.episode_number}`,
+              synopsis: ep.overview || null, air_date: ep.air_date || null, watched: false });
+          } else {
+            exEp.title = ep.name || exEp.title;
+            exEp.synopsis = ep.overview || exEp.synopsis;
+            exEp.air_date = ep.air_date || exEp.air_date;
+          }
+        });
+        exSea.episodes.sort((a,b) => a.episode_number - b.episode_number);
+      }
+    });
+    if (!isAnime) s.total_seasons = meta.number_of_seasons || s.total_seasons;
+  } else {
+    // Anime with more AniList seasons than TMDB seasons:
+    // Flatten all TMDB episodes into one list, then distribute across our seasons sequentially
+    const allTmdbEps = tmdbSeasonData.flatMap(sea => sea.episodes || [])
+      .sort((a, b) => {
+        // Sort by season then episode
+        const sa = tmdbSeasonData.findIndex(x => x.season_number === a.season_number);
+        const sb2 = tmdbSeasonData.findIndex(x => x.season_number === b.season_number);
+        return sa !== sb2 ? sa - sb2 : a.episode_number - b.episode_number;
+      });
+
+    console.log(`[TMDB refresh] anime mode: ${allTmdbEps.length} TMDB eps across ${ourSeasonCount} AniList seasons`);
+
+    let tmdbIdx = 0;
+    for (const sea of (s.seasons || [])) {
+      for (const ep of sea.episodes) {
+        if (tmdbIdx < allTmdbEps.length) {
+          const tmdbEp = allTmdbEps[tmdbIdx++];
+          ep.title = tmdbEp.name || ep.title;
+          ep.synopsis = tmdbEp.overview || ep.synopsis;
+          ep.air_date = tmdbEp.air_date || ep.air_date;
+        }
+      }
+    }
+  }
+  (s.seasons || []).sort((a,b) => a.season_number - b.season_number);
+
+  (s.seasons || []).forEach(se => (se.episodes || []).forEach(e => {
+    const k = `${se.season_number}:${e.episode_number}`;
+    if (!beforeDates.has(k)) stats.newEpisodes++;
+    else if (beforeDates.get(k) && e.air_date && beforeDates.get(k) !== e.air_date) stats.dateChanges++;
+  }));
+
+  // Refresh providers + cast
+  await fetchProviders(s.id, s.tmdb_id);
+  return stats;
+}
+
 async function refreshFromTMDB() {
   const s = data.series.find(x => x.id === currentSeriesId);
   if (!s || !s.tmdb_id) { showToast('No TMDB ID — use Edit to add one', 'error'); return; }
@@ -2572,102 +2714,7 @@ async function refreshFromTMDB() {
   showToast('Refreshing from TMDB…');
 
   try {
-    // Movies: refresh metadata only — no seasons/episodes
-    if (s.type === 'movie') {
-      const res = await fetch(`https://api.themoviedb.org/3/movie/${s.tmdb_id}?api_key=${key}`);
-      if (!res.ok) throw new Error(`TMDB movie fetch failed: ${res.status}`);
-      const m = await res.json();
-      s.title = m.title || s.title;
-      s.synopsis = m.overview || s.synopsis;
-      s.poster_url = m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : s.poster_url;
-      s.genres = (m.genres||[]).map(g=>g.name).length ? (m.genres||[]).map(g=>g.name) : s.genres;
-      s.year = (m.release_date||'').split('-')[0] || s.year;
-      Object.assign(s, originFromTmdb(m));
-      await fetchProviders(s.id, s.tmdb_id);
-      saveToDrive();
-      openDetail(s.id);
-      showToast('Refreshed from TMDB ✓', 'success');
-      return;
-    }
-
-    const seriesRes = await fetch(`https://api.themoviedb.org/3/tv/${s.tmdb_id}?api_key=${key}`);
-    const meta = await seriesRes.json();
-    const tmdbSeasonCount = meta.number_of_seasons || 1;
-
-    // Fetch all TMDB seasons
-    const seasonFetches = [];
-    for (let i = 1; i <= Math.min(tmdbSeasonCount, 50); i++) {
-      seasonFetches.push(fetch(`https://api.themoviedb.org/3/tv/${s.tmdb_id}/season/${i}?api_key=${key}`).then(r => r.json()));
-    }
-    const tmdbSeasonData = await Promise.all(seasonFetches);
-
-    // Update metadata (but preserve title/genres from AniList for anime)
-    if (s.type !== 'anime') s.title = meta.name || s.title;
-    s.synopsis = s.synopsis || meta.overview || '';
-    if (s.type !== 'anime') s.genres = (meta.genres||[]).map(g=>g.name).length ? (meta.genres||[]).map(g=>g.name) : s.genres;
-    s.poster_url = s.poster_url || (meta.poster_path ? `https://image.tmdb.org/t/p/w500${meta.poster_path}` : '');
-    if (s.type !== 'anime') Object.assign(s, originFromTmdb(meta));
-
-    const isAnime = s.type === 'anime';
-    const ourSeasonCount = (s.seasons || []).length;
-
-    if (!isAnime || tmdbSeasonCount >= ourSeasonCount) {
-      // Non-anime or TMDB has enough seasons: merge by season number directly
-      tmdbSeasonData.forEach(sea => {
-        if (!sea.season_number) return;
-        let exSea = (s.seasons||[]).find(x => x.season_number === sea.season_number);
-        if (!exSea) {
-          s.seasons = s.seasons || [];
-          s.seasons.push({ season_number: sea.season_number, episodes: (sea.episodes||[]).map(ep => ({
-            episode_number: ep.episode_number, title: ep.name || `Episode ${ep.episode_number}`,
-            synopsis: ep.overview || null, air_date: ep.air_date || null, watched: false
-          }))});
-        } else {
-          (sea.episodes||[]).forEach(ep => {
-            const exEp = exSea.episodes.find(e => e.episode_number === ep.episode_number);
-            if (!exEp) {
-              exSea.episodes.push({ episode_number: ep.episode_number, title: ep.name || `Episode ${ep.episode_number}`,
-                synopsis: ep.overview || null, air_date: ep.air_date || null, watched: false });
-            } else {
-              exEp.title = ep.name || exEp.title;
-              exEp.synopsis = ep.overview || exEp.synopsis;
-              exEp.air_date = ep.air_date || exEp.air_date;
-            }
-          });
-          exSea.episodes.sort((a,b) => a.episode_number - b.episode_number);
-        }
-      });
-      if (!isAnime) s.total_seasons = meta.number_of_seasons || s.total_seasons;
-    } else {
-      // Anime with more AniList seasons than TMDB seasons:
-      // Flatten all TMDB episodes into one list, then distribute across our seasons sequentially
-      const allTmdbEps = tmdbSeasonData.flatMap(sea => sea.episodes || [])
-        .sort((a, b) => {
-          // Sort by season then episode
-          const sa = tmdbSeasonData.findIndex(x => x.season_number === a.season_number);
-          const sb2 = tmdbSeasonData.findIndex(x => x.season_number === b.season_number);
-          return sa !== sb2 ? sa - sb2 : a.episode_number - b.episode_number;
-        });
-
-      console.log(`[TMDB refresh] anime mode: ${allTmdbEps.length} TMDB eps across ${ourSeasonCount} AniList seasons`);
-
-      let tmdbIdx = 0;
-      for (const sea of (s.seasons || [])) {
-        for (const ep of sea.episodes) {
-          if (tmdbIdx < allTmdbEps.length) {
-            const tmdbEp = allTmdbEps[tmdbIdx++];
-            ep.title = tmdbEp.name || ep.title;
-            ep.synopsis = tmdbEp.overview || ep.synopsis;
-            ep.air_date = tmdbEp.air_date || ep.air_date;
-          }
-        }
-      }
-    }
-    s.seasons.sort((a,b) => a.season_number - b.season_number);
-
-    // Refresh providers + cast
-    await fetchProviders(s.id, s.tmdb_id);
-
+    await tmdbRefreshOne(s, key);
     saveToDrive();
     openDetail(s.id);
     showToast('Refreshed from TMDB ✓', 'success');
@@ -2680,6 +2727,110 @@ async function refreshFromTMDB() {
   }
 }
 
+// ─── Monthly "Refresh All from TMDB" ───────────────────────────────────────
+// Re-pulls every active title so new seasons/episodes, moved air dates and movie release dates
+// land in the library (and in upcoming[] for Life Plan). A reminder appears every 30 days.
+const TMDB_BULK_INTERVAL_DAYS = 30;
+let tmdbBulkRunning = false;
+function tmdbBulkDueDate() {
+  const last = data.settings.lastTmdbBulkRefresh;
+  if (!last) return new Date().toISOString().split('T')[0];
+  const d = new Date(last + 'T00:00:00');
+  d.setDate(d.getDate() + TMDB_BULK_INTERVAL_DAYS);
+  return d.toISOString().split('T')[0];
+}
+function tmdbBulkIsDue() { return tmdbBulkDueDate() <= new Date().toISOString().split('T')[0]; }
+function tmdbBulkTargets() {
+  const thisYear = new Date().getFullYear();
+  const today = new Date().toISOString().split('T')[0];
+  return data.series.filter(s => {
+    if (!s.tmdb_id || s.status === 'Dropped') return false;
+    if (s.type === 'movie') {
+      // Movies only while a release date could still move: unreleased, unknown, or recent
+      if (s.release_date && s.release_date > today) return true;
+      const yr = parseInt(s.year) || 0;
+      return !yr || yr >= thisYear - 1;
+    }
+    return true; // TV + anime, including Completed (catches new seasons and revivals)
+  });
+}
+async function bulkRefreshTMDB() {
+  if (tmdbBulkRunning) return;
+  const key = data.settings.tmdb_api_key;
+  if (!key) { showToast('Add your TMDB API key in Settings', 'error'); return; }
+  const targets = tmdbBulkTargets();
+  if (!targets.length) { showToast('Nothing to refresh', 'error'); return; }
+  tmdbBulkRunning = true;
+  hideTmdbBulkBanner();
+  const statusEl = document.getElementById('tmdb-bulk-status');
+  const btn = document.getElementById('tmdb-bulk-btn');
+  if (btn) btn.disabled = true;
+  const setStatus = (t) => { if (statusEl) statusEl.textContent = t; };
+  let done = 0, failed = 0, newEps = 0, moved = 0, changedTitles = 0, fatal = false, i = 0;
+  setStatus(`Refreshing 0/${targets.length}…`);
+  showToast(`Refreshing ${targets.length} titles from TMDB…`);
+  const lane = async () => {
+    while (i < targets.length && !fatal) {
+      const s = targets[i++];
+      try {
+        const st = await tmdbRefreshOne(s, key);
+        newEps += st.newEpisodes; moved += st.dateChanges;
+        if (st.newEpisodes || st.dateChanges) changedTitles++;
+      } catch (e) {
+        failed++;
+        console.error('[bulkRefreshTMDB]', s.title, e);
+        if (String(e.message || '').includes('401') || e.fatal) fatal = true;
+      }
+      done++;
+      setStatus(`Refreshing ${done}/${targets.length}…`);
+      if (done % 25 === 0) saveToDrive(); // checkpoint
+      await new Promise(r => setTimeout(r, 150));
+    }
+  };
+  try {
+    await Promise.all(Array.from({ length: 3 }, lane));
+  } finally {
+    tmdbBulkRunning = false;
+    if (btn) btn.disabled = false;
+  }
+  if (fatal) {
+    setStatus('Stopped — TMDB key rejected. Check the key above.');
+    showToast('TMDB key rejected — check Settings', 'error');
+    saveToDrive();
+    return;
+  }
+  data.settings.lastTmdbBulkRefresh = new Date().toISOString().split('T')[0];
+  const summary = `✓ ${done - failed} refreshed · ${newEps} new episode${newEps !== 1 ? 's' : ''} · ${moved} date change${moved !== 1 ? 's' : ''}${failed ? ` · ${failed} failed` : ''}`;
+  setStatus(summary);
+  updateTmdbBulkLastText();
+  saveToDrive();
+  updateCounts();
+  renderGrid();
+  showToast(summary, failed ? 'error' : 'success');
+}
+function updateTmdbBulkLastText() {
+  const el = document.getElementById('tmdb-bulk-last');
+  if (!el) return;
+  const last = data.settings.lastTmdbBulkRefresh;
+  el.textContent = last ? `Last full refresh: ${last} · next due ${tmdbBulkDueDate()}` : 'Never run — recommended once a month.';
+}
+function hideTmdbBulkBanner() {
+  const b = document.getElementById('tmdb-bulk-banner');
+  if (b) b.remove();
+}
+function maybeShowTmdbBulkBanner() {
+  updateTmdbBulkLastText();
+  try { if (sessionStorage.getItem('tvworld-bulk-later')) return; } catch (e) {}
+  if (!data.settings.tmdb_api_key || !tmdbBulkIsDue() || document.getElementById('tmdb-bulk-banner')) return;
+  const last = data.settings.lastTmdbBulkRefresh;
+  const b = document.createElement('div');
+  b.id = 'tmdb-bulk-banner';
+  b.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:16px;z-index:150;max-width:min(560px,calc(100vw - 32px));width:100%;background:var(--surface,#1a1d24);border:1px solid var(--border,#333);border-radius:10px;padding:12px 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;box-shadow:0 6px 24px rgba(0,0,0,.35);font-size:13px;';
+  b.innerHTML = `<div style="flex:1;min-width:180px;"><strong>Monthly TMDB refresh due</strong><div style="color:var(--muted);font-size:12px;margin-top:2px;">${last ? 'Last run ' + last + '. ' : ''}Checks all your titles for new seasons, episodes, delays and movie release dates.</div></div>
+    <button class="btn btn-primary btn-sm" onclick="bulkRefreshTMDB()">↻ Refresh now</button>
+    <button class="btn btn-secondary btn-sm" onclick="try{sessionStorage.setItem('tvworld-bulk-later','1')}catch(e){};hideTmdbBulkBanner()">Later</button>`;
+  document.body.appendChild(b);
+}
 
 async function fetchProviders(seriesId, tmdbId) {
   const key = data.settings.tmdb_api_key;
