@@ -1,7 +1,7 @@
 // TV World service worker — lets the installed app open quickly and pick up new versions.
 // The app itself is always fetched from the network first, so uploading a new index.html to GitHub
 // takes effect the next time the app is opened online. Your data never goes through here (it lives on Drive).
-const CACHE = 'tvworld-v2';
+const CACHE = 'tvworld-v3';
 const SHELL = ['./', './index.html', './manifest.json', './icons/icon-192.png', './icons/icon-512.png'];
 const CDN_HOSTS = ['cdn.tailwindcss.com', 'fonts.googleapis.com', 'fonts.gstatic.com'];
 
