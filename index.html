@@ -34,6 +34,11 @@
   }
 
   * { box-sizing: border-box; }
+  /* Shared theme tokens (13.2): same names in every app, mapped to this app's palette */
+  :root { --lp-bg: var(--bg); --lp-surface: var(--card); --lp-text: var(--text); --lp-muted: var(--muted); --lp-accent: var(--accent); }
+  .lp-back { display:inline-block; color:var(--lp-muted); font-size:12px; text-decoration:none; margin-bottom:8px; }
+  .lp-back:hover { color:var(--lp-text); }
+  .lp-back-btn { text-decoration:none; }
   body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; font-size: 14px; margin: 0; min-height: 100vh; }
   h1, h2, h3, .syne { font-family: 'Syne', sans-serif; }
 
@@ -629,6 +634,7 @@
   <!-- Sidebar -->
   <div id="sidebar">
     <div class="sidebar-logo">
+      <a class="lp-back" href="https://marvyeo.github.io/LifePlan/" aria-label="Back to Life Plan">← Life Plan</a>
       <div class="wordmark">TV <span>World</span></div>
       <div style="font-size:11px;color:var(--muted);margin-top:3px;">Series Tracker</div>
     </div>
@@ -700,7 +706,7 @@
   <!-- Main area -->
   <div id="main">
     <div id="mobile-topbar">
-      <button class="topbar-btn" onclick="openDrawer()" aria-label="Menu">☰</button>
+      <div style="display:flex;gap:8px;"><a class="topbar-btn lp-back-btn" href="https://marvyeo.github.io/LifePlan/" aria-label="Back to Life Plan">←</a><button class="topbar-btn" onclick="openDrawer()" aria-label="Menu">☰</button></div>
       <div class="wordmark">TV <span style="color:var(--accent2)">World</span></div>
       <button class="topbar-btn" onclick="switchView('settings')" aria-label="Settings">⚙️</button>
     </div>
@@ -1329,7 +1335,11 @@
 <!-- ===================== SCRIPT ===================== -->
 <script>
 // ─── Config ────────────────────────────────────────────────────────────────
-const CLIENT_ID = '678456232174-ilpocmjaijsjsi4fr1or9r4o0to8vh9h.apps.googleusercontent.com';
+const CLIENT_ID = '669494100250-gvromuq72r7j0djmkd4vdbdq5damncj7.apps.googleusercontent.com'; // shared Life Plan client (13.4); was 678456232174-…
+const PICKER_API_KEY = 'AIzaSyAHadhdBv8qOsaD91L6l4V74AF38LZVCFY';
+const GCP_APP_ID = '669494100250';
+const LP_URL = 'https://marvyeo.github.io/LifePlan/';
+const DRIVE_FILE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 const DRIVE_FILENAME = 'tvworld-data.json';
 const GITHUB_PAGES_URL = window.location.href.split('?')[0];
 
@@ -1382,6 +1392,25 @@ let data = {
 // ─── Auth ──────────────────────────────────────────────────────────────────
 let tokenClient;
 
+// Shared sign-in with Life Plan and the other apps (Sprint 13.4). All apps share the origin https://marvyeo.github.io,
+// so localStorage is shared. Key `lp-sso` = { t, exp, email, scope, client }. Only a drive.file token for the shared client is used.
+const SSO_KEY = 'lp-sso';
+function ssoPublish(t, expiresIn) {
+  try {
+    let email = ''; try { email = (JSON.parse(localStorage.getItem(SSO_KEY) || 'null') || {}).email || ''; } catch (e) {}
+    localStorage.setItem(SSO_KEY, JSON.stringify({ t, exp: Date.now() + (Number(expiresIn) || 3600) * 1000, email, scope: DRIVE_FILE_SCOPE, client: CLIENT_ID }));
+  } catch (e) {}
+}
+function ssoClear() { try { localStorage.removeItem(SSO_KEY); } catch (e) {} }
+function ssoAdopt() {
+  try {
+    const x = JSON.parse(localStorage.getItem(SSO_KEY) || 'null');
+    if (!x || !x.t || x.client !== CLIENT_ID || x.scope !== DRIVE_FILE_SCOPE || x.exp <= Date.now() + 60000) return false;
+    accessToken = x.t; tokenExpiresAt = x.exp - 60000;
+    return true;
+  } catch (e) { return false; }
+}
+
 function startSignIn() {
   if (!tokenClient) {
     showToast('Still loading — try again in a moment');
@@ -1392,7 +1421,11 @@ function startSignIn() {
 
 // GSI library calls this once it's ready
 window.addEventListener('load', () => {
-  consumeRedirectToken();
+  if (!consumeRedirectToken() && ssoAdopt()) {
+    document.getElementById('auth-screen').classList.add('hidden');
+    document.getElementById('app').classList.remove('hidden');
+    loadFromDrive();
+  }
   renderInstallSection();
   // Poll until google.accounts is available (handles async defer timing)
   const init = () => {
@@ -1410,6 +1443,7 @@ window.addEventListener('load', () => {
         }
         accessToken = tokenResponse.access_token;
         tokenExpiresAt = Date.now() + (Number(tokenResponse.expires_in) || 3600) * 1000 - 60000;
+        ssoPublish(accessToken, tokenResponse.expires_in);
         if (appReady) { onTokenRenewed(); return; } // reconnect mid-session: keep what's on screen
         document.getElementById('auth-screen').classList.add('hidden');
         document.getElementById('app').classList.remove('hidden');
@@ -1551,7 +1585,7 @@ function mergeData(local, remote, base) {
 function tokenValid() { return !!accessToken && Date.now() < tokenExpiresAt; }
 async function driveGet(path, asJson = true) {
   const res = await fetch(`${DRIVE_API}/${path}`, { headers: { Authorization: `Bearer ${accessToken}` } });
-  if (res.status === 401) { const e = new Error('auth'); e.auth = true; throw e; }
+  if (res.status === 401) { ssoClear(); const e = new Error('auth'); e.auth = true; throw e; }
   if (!res.ok) throw new Error(`Drive ${res.status}`);
   return asJson ? res.json() : res;
 }
@@ -1567,8 +1601,14 @@ async function loadFromDrive() {
   try {
     setSyncStatus('syncing');
     const list = await driveGet(`?q=name='${DRIVE_FILENAME}'+and+trashed=false&spaces=drive&fields=files(id,name)`);
-    if (list.files && list.files.length > 0) {
-      driveFileId = list.files[0].id;
+    let fid = (list.files && list.files.length > 0) ? list.files[0].id : null;
+    if (!fid) { // a file picked on this device (drive.file can't search for files made under the old client)
+      let saved = null; try { saved = localStorage.getItem('tvworld-file-id'); } catch (e) {}
+      if (saved) { try { await driveGet(`${saved}?fields=id`); fid = saved; } catch (e) { if (e.auth) throw e; } }
+    }
+    if (!fid && !startedEmpty) { setSyncStatus('ok'); showFilePicker(); return; } // never silently start empty: that would create a second, empty file
+    if (fid) {
+      driveFileId = fid;
       const { version, remote } = await fetchRemote();
       data = remote;
       driveVersion = version;
@@ -1587,9 +1627,52 @@ async function loadFromDrive() {
     initUI();
   } catch (e) {
     setSyncStatus('error');
-    showToast(e.auth ? 'Sign-in expired — please sign in again' : 'Could not load from Drive', 'error');
+    if (e.auth) { // stale or revoked token (possibly adopted from another app): back to the sign-in screen
+      document.getElementById('app').classList.add('hidden');
+      document.getElementById('auth-screen').classList.remove('hidden');
+      showToast('Sign-in expired — please sign in again', 'error');
+      return;
+    }
+    showToast('Could not load from Drive', 'error');
     initUI();
   }
+}
+
+// One-time step after moving to the shared client: Google only lets this app see files it created or that you pick.
+let startedEmpty = false;
+function showFilePicker() {
+  if (document.getElementById('pick-screen')) return;
+  const ov = document.createElement('div');
+  ov.id = 'pick-screen';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:210;background:var(--bg);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;padding:24px;text-align:center;';
+  ov.innerHTML = '<div class="auth-logo">TV <span>World</span></div>' +
+    '<p style="max-width:340px;color:var(--muted);font-size:13px;line-height:1.55;">TV World now uses the shared Life Plan sign-in. Google needs you to point it at your existing <b>' + DRIVE_FILENAME + '</b> once. Nothing in the file is changed.</p>' +
+    '<button class="btn btn-primary" style="padding:12px 28px;font-size:15px;" onclick="pickDataFile()">Pick my existing file</button>' +
+    '<a href="#" onclick="event.preventDefault();startEmpty()" style="color:var(--muted);font-size:11px;text-decoration:underline;">I don\'t have one yet — start empty</a>';
+  document.body.appendChild(ov);
+}
+function startEmpty() {
+  if (!confirm('Start with an empty library? Only do this if you have never used TV World before.')) return;
+  startedEmpty = true;
+  const ov = document.getElementById('pick-screen'); if (ov) ov.remove();
+  loadFromDrive();
+}
+function pickDataFile() {
+  const open = () => gapi.load('picker', () => {
+    const view = new google.picker.DocsView(google.picker.ViewId.DOCS).setMode(google.picker.DocsViewMode.LIST).setMimeTypes('application/json').setQuery(DRIVE_FILENAME);
+    new google.picker.PickerBuilder().addView(view).setTitle('Pick ' + DRIVE_FILENAME)
+      .setOAuthToken(accessToken).setDeveloperKey(PICKER_API_KEY).setAppId(GCP_APP_ID)
+      .setCallback(d => {
+        if (d.action !== google.picker.Action.PICKED) return;
+        const doc = d.docs[0];
+        if (!doc || doc.name !== DRIVE_FILENAME) { showToast('Please pick the file named ' + DRIVE_FILENAME, 'error'); return; }
+        try { localStorage.setItem('tvworld-file-id', doc.id); } catch (e) {}
+        const ov = document.getElementById('pick-screen'); if (ov) ov.remove();
+        loadFromDrive();
+      }).build().setVisible(true);
+  });
+  if (window.gapi && window.gapi.load) open();
+  else { const sc = document.createElement('script'); sc.src = 'https://apis.google.com/js/api.js'; sc.onload = open; sc.onerror = () => showToast('Could not load the file picker', 'error'); document.head.appendChild(sc); }
 }
 
 // Saves are queued: a tick made while a save is running is picked up by one follow-up save
@@ -1697,6 +1780,7 @@ function needReconnect() {
     : 'Sign-in expired — reconnect to keep syncing.';
 }
 function reconnect() {
+  if (ssoAdopt()) { onTokenRenewed(); return; } // another app may have already renewed the shared sign-in
   if (!tokenClient) { showToast('Still loading — try again in a moment'); return; }
   tokenClient.requestAccessToken({ prompt: '' });
 }
@@ -1767,6 +1851,7 @@ function consumeRedirectToken() {
   if (h.get('state') !== 'tvworld' || !h.get('access_token')) return false;
   accessToken = h.get('access_token');
   tokenExpiresAt = Date.now() + (Number(h.get('expires_in')) || 3600) * 1000 - 60000;
+  ssoPublish(accessToken, h.get('expires_in'));
   document.getElementById('auth-screen').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
   loadFromDrive();

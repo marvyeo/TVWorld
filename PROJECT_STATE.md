@@ -31,12 +31,18 @@
 
 ---
 
-## Latest changes (Oct 20–22, 2026, conductor chat)
+## Latest changes (Oct 23, 2026, conductor chat "Life Plan Roadmap ver 7", Sprint 13.4 + 13.2)
+- **Moved to the shared OAuth client** (`669494100250-…`). Google only lets `drive.file` see files this client created or you picked, so the old `tvworld-data.json` is invisible at first. If no file is found, the app shows a **"Pick my existing file"** screen (Google Picker) instead of starting empty, and remembers the picked id (`tvworld-file-id`). After that, Life Plan can find the file by name. **Marvin: do this once per device/account when you first open it.**
+- **Shared sign-in (`lp-sso` in localStorage):** on open, a valid `drive.file` token from Life Plan or another app on the shared client is used, so there is no second sign-in. The app publishes its own token after sign-in; a 401 clears it. A rejected token returns to the sign-in screen.
+- **13.2:** "← Life Plan" link (sidebar and mobile top bar); shared theme tokens `--lp-bg/--lp-surface/--lp-text/--lp-muted/--lp-accent` mapped to this app's palette. `viewport-fit=cover` and safe-area padding were already in. `sw.js` cache `tvworld-v5`.
+- 13.3 (iOS) not needed here: the redirect fallback and Add to Home Screen hint already exist. Add `https://marvyeo.github.io/TVWorld/` to Authorized redirect URIs on the shared client if iPhone sign-in is used.
+
+## Earlier changes (Oct 20–22, 2026, conductor chat)
 - **Monthly refresh (PR #1, merged 20 Oct):** Settings → **Refresh All from TMDB** updates every title in one go. `upcoming[]` gets a `due-date` reminder 30 days after the last run.
 - **Movie release dates:** unreleased watchlisted movies add `release` items to `upcoming[]` ("in SG cinemas" / "digital release").
 - **New icon** from the ecosystem icon set (21 Oct); `sw.js` cache now `tvworld-v4`.
 - **Manifest id fixed (22 Oct):** `"id": "/TVWorld/"`. The old `"./"` resolved to the site root, so Android treated every marvyeo.github.io app as one.
-- **Life Plan** dashboard reads `tvworld-data.json`. TV World is on its own Google Cloud project, so Life Plan needs a one-time **Pick missing files** grant.
+- **Life Plan** dashboard reads `tvworld-data.json`. (Superseded 2026-10-23: TV World is now on the shared client; the picker step moves into TV World itself.)
 
 ## Session (Oct 13, 2026) — installable app + multi-device sync
 - **PWA:** `manifest.json`, `sw.js`, `icons/` now sit beside `index.html` in the GitHub Pages repo. Install from Chrome/Edge (PC), Chrome (Android), Safari → Add to Home Screen (iPhone). Settings → *Install on this device* shows the right steps / an Install button.
@@ -79,8 +85,8 @@ A single-file HTML app (`index.html`) that tracks TV shows, anime, and movies. P
 **Installable:** PWA on PC / Android / iPhone  
 **Data:** `tvworld-data.json` on Google Drive  
 **Auth:** Google OAuth 2.0 (drive.file scope)  
-**Google Cloud Project:** Separate from ComicsTracker  
-**Client ID:** `678456232174-ilpocmjaijsjsi4fr1or9r4o0to8vh9h.apps.googleusercontent.com`
+**Google Cloud Project:** Shared Life Plan project (moved 2026-10-23, Sprint 13.4); it used to be separate  
+**Client ID:** `669494100250-gvromuq72r7j0djmkd4vdbdq5damncj7.apps.googleusercontent.com` (was `678456232174-…`)
 
 ---
 
@@ -492,3 +498,4 @@ Complex structure: 5 AniList entries (S1, S2P1, S2P2, S3, S4).
 ## Change log
 - **Up to Oct 13, 2026:** see the session notes at the top (kept as a downloadable file before this date).
 - **ver 3 (2026-10-22):** moved into the repo as `PROJECT_STATE.md`; added Session Rules; recorded the Oct 20–22 changes (monthly refresh, movie dates, icon, manifest id).
+- **2026-10-23 (conductor, Sprint 13.4 + 13.2):** moved to the shared OAuth client with a one-time "Pick my existing file" step (never silently starts empty), added shared `lp-sso` sign-in, "← Life Plan" link and shared theme tokens; `sw.js` cache `tvworld-v5`. Not tested live.
