@@ -1,9 +1,9 @@
 # TV World — Project State
 
-> **Next chat name: `TV World ver 4`**
-> Claude: your FIRST reply in a new chat must start with "Rename this chat to: **TV World ver 4**" (you can't rename chats yourself). In your first commit this session, bump the number here by 1.
+> **Next chat name: `TV World ver 5`**
+> Claude: your FIRST reply in a new chat must start with "Rename this chat to: **TV World ver 5**" (you can't rename chats yourself). In your first commit this session, bump the number here by 1.
 
-**State version:** 3 (moved into the repo 2026-10-22 by the conductor chat "Life Plan Roadmap ver 3")
+**State version:** 4 (2026-10-25; v3 was moved into the repo 2026-10-22 by the conductor chat "Life Plan Roadmap ver 3")
 **Where this lives:** `PROJECT_STATE.md` in the repo. New chats `git pull` and read it; no uploads needed.
 
 ## ⚙ Session Rules (every chat that works on this app follows these)
@@ -482,6 +482,8 @@ Entries created via Ingest JSON used to be saved with no `type` field (`normaliz
 
 The `tvworld-sync.md` / `tvworld-updates-YYYY-MM.json` routine was retired on 2026-10-20. Use Settings → **Refresh All from TMDB** once a month; the Life Plan dashboard shows a reminder when it's due.
 
+**Refresh changelog (added ver 4):** each Refresh All run records what changed per title. `tmdbRefreshOne` snapshots the title before merging (`chgSnapshot`), diffs after (`chgDiff`) and returns `stats.changes` (readable lines: new episodes/seasons, moved or newly set air dates, renamed episodes, title/year/genres, theatrical and digital release dates; max 8 lines per title). `bulkRefreshTMDB` collects them and stores the **last 3 runs** in `data.settings.tmdbChangelog` as `[{date, summary, changes:[{id,title,type,lines[]}]}]` (synced to Drive with the other settings; `mergeData` handles it as a normal settings key). Settings → Refresh All shows **View last changes** and **Copy as Markdown** (latest run). Not tracked: synopsis, poster, providers/cast changes. A run that stops on a rejected TMDB key stores nothing. Not tested live.
+
 For anime: ↻ AniList resync handles metadata; ↻ TMDB handles episode titles/dates.
 
 ---
@@ -498,4 +500,5 @@ Complex structure: 5 AniList entries (S1, S2P1, S2P2, S3, S4).
 ## Change log
 - **Up to Oct 13, 2026:** see the session notes at the top (kept as a downloadable file before this date).
 - **ver 3 (2026-10-22):** moved into the repo as `PROJECT_STATE.md`; added Session Rules; recorded the Oct 20–22 changes (monthly refresh, movie dates, icon, manifest id).
+- **ver 4 (2026-10-25):** Refresh All from TMDB now keeps a per-title changelog (last 3 runs in `settings.tmdbChangelog`) with a View last changes panel and Copy as Markdown in Settings. Diff logic checked with a Node test; UI/Drive sync not tested live.
 - **2026-10-23 (conductor, Sprint 13.4 + 13.2):** moved to the shared OAuth client with a one-time "Pick my existing file" step (never silently starts empty), added shared `lp-sso` sign-in, "← Life Plan" link and shared theme tokens; `sw.js` cache `tvworld-v5`. Not tested live.

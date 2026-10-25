@@ -965,6 +965,11 @@
           <button class="btn btn-secondary btn-sm" onclick="bulkRefreshTMDB()" id="tmdb-bulk-btn">↻ Refresh All from TMDB</button>
           <span style="font-size:12px;color:var(--muted);margin-left:10px;" id="tmdb-bulk-status"></span>
           <div style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.5;">Re-pulls every title you haven't dropped: new seasons and episodes, moved air dates, and movie release dates (SG cinema first, plus digital). Your watched ticks are kept. <span id="tmdb-bulk-last"></span></div>
+          <div style="margin-top:8px;">
+            <button class="btn btn-secondary btn-sm" onclick="toggleTmdbChangelog()" id="tmdb-chg-btn" style="display:none;">View last changes</button>
+            <button class="btn btn-secondary btn-sm" onclick="copyTmdbChangelog()" id="tmdb-chg-copy" style="display:none;">Copy as Markdown</button>
+          </div>
+          <div id="tmdb-chg-panel" style="display:none;margin-top:8px;max-height:320px;overflow:auto;font-size:12px;line-height:1.6;border:1px solid var(--border,#333);border-radius:8px;padding:10px 12px;"></div>
         </div>
         <div style="margin-top:10px;">
           <button class="btn btn-secondary btn-sm" onclick="detectOriginsAll()" id="origin-detect-btn">🌏 Detect origins</button>
@@ -2672,13 +2677,72 @@ async function selectTMDB(tmdbId, mediaType) {
 
 // Refreshes one library entry from TMDB in place (no save, no UI). Used by ↻ TMDB and by
 // ↻ Refresh All from TMDB. Returns { newEpisodes, dateChanges }.
+// ── Refresh changelog: what a TMDB refresh actually changed on one title ──
+function chgSnapshot(s) {
+  const eps = new Map(), seasons = new Set();
+  (s.seasons || []).forEach(se => {
+    seasons.add(se.season_number);
+    (se.episodes || []).forEach(e => eps.set(`${se.season_number}:${e.episode_number}`, { t: e.title || '', d: e.air_date || null }));
+  });
+  return { title: s.title || '', year: s.year || '', genres: (s.genres || []).join(', '),
+    release: s.release_date || null, digital: s.digital_release_date || null, seasons, eps };
+}
+function chgDiff(s, b) {
+  const out = [];
+  const a = chgSnapshot(s);
+  const pad = n => String(n).padStart(2, '0');
+  const code = k => { const [sn, en] = k.split(':'); return `S${pad(sn)}E${pad(en)}`; };
+  if (a.title !== b.title) out.push(`Title: "${b.title}" → "${a.title}"`);
+  if (String(a.year) !== String(b.year)) out.push(`Year: ${b.year || '—'} → ${a.year || '—'}`);
+  if (a.genres !== b.genres) out.push(`Genres: ${b.genres || '—'} → ${a.genres || '—'}`);
+  if (a.release !== b.release) out.push(`Release date: ${b.release || '—'} → ${a.release || '—'}`);
+  if (a.digital !== b.digital) out.push(`Digital release: ${b.digital || '—'} → ${a.digital || '—'}`);
+
+  // New episodes, grouped by season
+  const bySeason = new Map();
+  for (const [k, v] of a.eps) {
+    if (b.eps.has(k)) continue;
+    const sn = Number(k.split(':')[0]);
+    if (!bySeason.has(sn)) bySeason.set(sn, []);
+    bySeason.get(sn).push({ k, ...v });
+  }
+  [...bySeason.keys()].sort((x, y) => x - y).forEach(sn => {
+    const list = bySeason.get(sn);
+    const isNewSeason = !b.seasons.has(sn);
+    const dates = list.map(e => e.d).filter(Boolean).sort();
+    const first = dates.length ? ` · first airs ${dates[0]}` : '';
+    if (isNewSeason) out.push(`New season ${sn}: ${list.length} episode${list.length !== 1 ? 's' : ''}${first}`);
+    else if (list.length <= 3) list.forEach(e => out.push(`New episode ${code(e.k)} "${e.t}"${e.d ? ` · airs ${e.d}` : ''}`));
+    else out.push(`${list.length} new episodes in season ${sn}${first}`);
+  });
+  // Seasons that exist now but came with no episodes yet
+  [...a.seasons].filter(n => !b.seasons.has(n) && !bySeason.has(n)).sort((x, y) => x - y)
+    .forEach(n => out.push(`New season ${n} (no episodes listed yet)`));
+
+  // Moved / newly set air dates, and renamed episodes, on episodes you already had
+  const moved = [], renamed = [];
+  for (const [k, v] of a.eps) {
+    const o = b.eps.get(k);
+    if (!o) continue;
+    if (o.d !== v.d) moved.push(o.d ? `Air date moved ${code(k)}: ${o.d} → ${v.d || '—'}` : `Air date set ${code(k)}: ${v.d}`);
+    if (o.t !== v.t) renamed.push(`Episode title ${code(k)}: "${o.t}" → "${v.t}"`);
+  }
+  moved.slice(0, 6).forEach(l => out.push(l));
+  if (moved.length > 6) out.push(`+${moved.length - 6} more air date changes`);
+  if (renamed.length <= 3) renamed.forEach(l => out.push(l));
+  else out.push(`${renamed.length} episode titles updated`);
+
+  return out.length > 8 ? [...out.slice(0, 8), `+${out.length - 8} more changes`] : out;
+}
+
 async function tmdbRefreshOne(s, key) {
-  const stats = { newEpisodes: 0, dateChanges: 0 };
+  const stats = { newEpisodes: 0, dateChanges: 0, changes: [] };
   // Movies: refresh metadata only — no seasons/episodes
   if (s.type === 'movie') {
     const res = await fetch(`https://api.themoviedb.org/3/movie/${s.tmdb_id}?api_key=${key}`);
     if (!res.ok) throw new Error(`TMDB movie fetch failed: ${res.status}`);
     const m = await res.json();
+    const chgBefore = chgSnapshot(s);
     s.title = m.title || s.title;
     s.synopsis = m.overview || s.synopsis;
     s.poster_url = m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : s.poster_url;
@@ -2695,6 +2759,7 @@ async function tmdbRefreshOne(s, key) {
       if (before && s.release_date && before !== s.release_date) stats.dateChanges++;
     } catch (e) { console.warn('[tmdbRefreshOne] release dates unavailable', s.title, e); }
     await fetchProviders(s.id, s.tmdb_id);
+    stats.changes = chgDiff(s, chgBefore);
     return stats;
   }
 
@@ -2703,6 +2768,7 @@ async function tmdbRefreshOne(s, key) {
   const meta = await seriesRes.json();
   const tmdbSeasonCount = meta.number_of_seasons || 1;
 
+  const chgBefore = chgSnapshot(s);
   // Snapshot for the summary (new episodes / moved air dates)
   const beforeDates = new Map();
   (s.seasons || []).forEach(se => (se.episodes || []).forEach(e => beforeDates.set(`${se.season_number}:${e.episode_number}`, e.air_date || null)));
@@ -2785,6 +2851,7 @@ async function tmdbRefreshOne(s, key) {
 
   // Refresh providers + cast
   await fetchProviders(s.id, s.tmdb_id);
+  stats.changes = chgDiff(s, chgBefore);
   return stats;
 }
 
@@ -2852,6 +2919,7 @@ async function bulkRefreshTMDB() {
   if (btn) btn.disabled = true;
   const setStatus = (t) => { if (statusEl) statusEl.textContent = t; };
   let done = 0, failed = 0, newEps = 0, moved = 0, changedTitles = 0, fatal = false, i = 0;
+  const runChanges = [];
   setStatus(`Refreshing 0/${targets.length}…`);
   showToast(`Refreshing ${targets.length} titles from TMDB…`);
   const lane = async () => {
@@ -2860,6 +2928,7 @@ async function bulkRefreshTMDB() {
       try {
         const st = await tmdbRefreshOne(s, key);
         newEps += st.newEpisodes; moved += st.dateChanges;
+        if (st.changes && st.changes.length) runChanges.push({ id: s.id, title: s.title, type: s.type, lines: st.changes });
         if (st.newEpisodes || st.dateChanges) changedTitles++;
       } catch (e) {
         failed++;
@@ -2887,6 +2956,12 @@ async function bulkRefreshTMDB() {
   data.settings.lastTmdbBulkRefresh = new Date().toISOString().split('T')[0];
   const summary = `✓ ${done - failed} refreshed · ${newEps} new episode${newEps !== 1 ? 's' : ''} · ${moved} date change${moved !== 1 ? 's' : ''}${failed ? ` · ${failed} failed` : ''}`;
   setStatus(summary);
+  // Keep the last 3 runs' changelogs (synced via settings, so every device sees them)
+  runChanges.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+  data.settings.tmdbChangelog = [
+    { date: data.settings.lastTmdbBulkRefresh, summary, changes: runChanges },
+    ...tmdbChangelogRuns()
+  ].slice(0, 3);
   updateTmdbBulkLastText();
   saveToDrive();
   updateCounts();
@@ -2898,6 +2973,73 @@ function updateTmdbBulkLastText() {
   if (!el) return;
   const last = data.settings.lastTmdbBulkRefresh;
   el.textContent = last ? `Last full refresh: ${last} · next due ${tmdbBulkDueDate()}` : 'Never run — recommended once a month.';
+  renderTmdbChangelog();
+}
+
+// ─── Refresh changelog panel (Settings → View last changes) ───
+function tmdbChangelogRuns() { return Array.isArray(data.settings.tmdbChangelog) ? data.settings.tmdbChangelog : []; }
+function renderTmdbChangelog() {
+  const panel = document.getElementById('tmdb-chg-panel');
+  const viewBtn = document.getElementById('tmdb-chg-btn'), copyBtn = document.getElementById('tmdb-chg-copy');
+  if (!panel) return;
+  const runs = tmdbChangelogRuns();
+  if (viewBtn) viewBtn.style.display = runs.length ? '' : 'none';
+  if (copyBtn) copyBtn.style.display = runs.length ? '' : 'none';
+  panel.textContent = '';
+  runs.forEach((run, idx) => {
+    const det = document.createElement('details');
+    if (idx === 0) det.open = true;
+    det.style.marginBottom = '8px';
+    const sum = document.createElement('summary');
+    sum.style.cssText = 'cursor:pointer;font-weight:600;';
+    sum.textContent = `${run.date} — ${(run.changes || []).length} title${(run.changes || []).length !== 1 ? 's' : ''} changed`;
+    det.appendChild(sum);
+    const note = document.createElement('div');
+    note.style.cssText = 'color:var(--muted);margin:2px 0 6px;';
+    note.textContent = run.summary || '';
+    det.appendChild(note);
+    if (!(run.changes || []).length) {
+      const none = document.createElement('div');
+      none.textContent = 'No changes.';
+      det.appendChild(none);
+    }
+    (run.changes || []).forEach(c => {
+      const t = document.createElement('div');
+      t.style.cssText = 'font-weight:600;margin-top:6px;';
+      t.textContent = `${c.title}${c.type ? ' (' + c.type + ')' : ''}`;
+      det.appendChild(t);
+      const ul = document.createElement('ul');
+      ul.style.cssText = 'margin:2px 0 0 18px;padding:0;';
+      (c.lines || []).forEach(l => { const li = document.createElement('li'); li.textContent = l; ul.appendChild(li); });
+      det.appendChild(ul);
+    });
+    panel.appendChild(det);
+  });
+}
+function toggleTmdbChangelog() {
+  const panel = document.getElementById('tmdb-chg-panel');
+  if (!panel) return;
+  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+}
+function tmdbChangelogMarkdown(run) {
+  const out = [`# TMDB refresh — ${run.date}`, '', run.summary || '', ''];
+  if (!(run.changes || []).length) out.push('No changes.');
+  (run.changes || []).forEach(c => {
+    out.push(`## ${c.title}${c.type ? ' (' + c.type + ')' : ''}`);
+    (c.lines || []).forEach(l => out.push(`- ${l}`));
+    out.push('');
+  });
+  return out.join('\n');
+}
+async function copyTmdbChangelog() {
+  const run = tmdbChangelogRuns()[0];
+  if (!run) { showToast('No refresh changelog yet', 'error'); return; }
+  try {
+    await navigator.clipboard.writeText(tmdbChangelogMarkdown(run));
+    showToast('Changelog copied as Markdown', 'success');
+  } catch (e) {
+    showToast('Couldn’t copy — open View last changes and copy from there', 'error');
+  }
 }
 function hideTmdbBulkBanner() {
   const b = document.getElementById('tmdb-bulk-banner');
